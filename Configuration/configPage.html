@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>XMLTV Guide Cleaner</title>
+</head>
+<body>
+<div id="XmltvCleanerConfigPage"
+     data-role="page"
+     class="page type-interior pluginConfigurationPage"
+     data-require="emby-input,emby-button">
+    <div data-role="content">
+        <div class="content-primary">
+            <form id="XmltvCleanerConfigForm">
+
+                <div class="verticalSection">
+                    <h2>Upstream guide</h2>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="UpstreamUrl">Upstream XMLTV URL</label>
+                        <input id="UpstreamUrl" name="UpstreamUrl" type="text" is="emby-input" />
+                        <div class="fieldDescription">The URL Jellyfin's XMLTV guide provider used before, e.g. http://192.168.1.200:8089/devices/M3U-BroadcastHub/guide/xmltv?duration=1209600</div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="MinRefetchMinutes">Minimum minutes between upstream fetches</label>
+                        <input id="MinRefetchMinutes" name="MinRefetchMinutes" type="number" min="0" is="emby-input" />
+                        <div class="fieldDescription">Requests newer than this reuse the last cleaned copy.</div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="UpstreamTimeoutSeconds">Upstream timeout (seconds)</label>
+                        <input id="UpstreamTimeoutSeconds" name="UpstreamTimeoutSeconds" type="number" min="5" is="emby-input" />
+                        <div class="fieldDescription">If the upstream fails or times out, the last good cleaned copy is served instead.</div>
+                    </div>
+                </div>
+
+                <div class="verticalSection">
+                    <h2>Point Jellyfin at the cleaned guide</h2>
+                    <div class="fieldDescription">
+                        In Dashboard &rarr; Live TV, edit the XMLTV guide provider and set its file or URL to:
+                    </div>
+                    <pre id="CleanedUrl" style="user-select:all;white-space:pre-wrap;word-break:break-all;"></pre>
+                    <div class="fieldDescription">
+                        Then run Dashboard &rarr; Scheduled Tasks &rarr; "Refresh Guide". Jellyfin keeps its own copy
+                        of an XMLTV download for up to an hour.
+                    </div>
+
+                    <button id="RefreshBtn" type="button" is="emby-button" class="raised block">
+                        <span>Fetch and clean now</span>
+                    </button>
+                    <div id="RefreshResult" class="fieldDescription" style="margin-top:0.5em;white-space:pre-line;"></div>
+                </div>
+
+                <div>
+                    <button type="submit" is="emby-button" class="raised button-submit block">
+                        <span>Save</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        (function () {
+            var pluginUniqueId = "110ae7e3-0c55-4684-b0f8-3e86eb2b53af";
+
+            function load(page, config) {
+                page.querySelector("#UpstreamUrl").value = config.UpstreamUrl || "";
+                page.querySelector("#MinRefetchMinutes").value = config.MinRefetchMinutes != null ? config.MinRefetchMinutes : 10;
+                page.querySelector("#UpstreamTimeoutSeconds").value = config.UpstreamTimeoutSeconds || 120;
+                page.querySelector("#CleanedUrl").textContent = ApiClient.getUrl("XmltvCleaner/guide.xml");
+            }
+
+            function showStatus(s) {
+                var out = document.querySelector("#RefreshResult");
+                if (!s) {
+                    out.textContent = "No fetch yet since the server started.";
+                    return;
+                }
+                var lines = [];
+                if (s.FetchedUtc) {
+                    lines.push("Last successful fetch: " + new Date(s.FetchedUtc).toLocaleString() + " (" + s.DurationMs + " ms)");
+                    lines.push("Programmes: " + s.Programmes + ", titles cleaned: " + s.TitlesCleaned);
+                    (s.Samples || []).forEach(function (x) { lines.push("  " + x); });
+                }
+                if (s.LastError) {
+                    lines.push("Last error (" + new Date(s.LastErrorUtc).toLocaleString() + "): " + s.LastError);
+                }
+                out.textContent = lines.join("\n");
+            }
+
+            document.querySelector("#XmltvCleanerConfigPage")
+                .addEventListener("pageshow", function () {
+                    var page = this;
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(pluginUniqueId).then(function (config) {
+                        load(page, config);
+                        Dashboard.hideLoadingMsg();
+                    });
+                    ApiClient.ajax({
+                        type: "GET",
+                        url: ApiClient.getUrl("XmltvCleaner/Status"),
+                        dataType: "json"
+                    }).then(showStatus).catch(function () { showStatus(null); });
+                });
+
+            document.querySelector("#RefreshBtn").addEventListener("click", function () {
+                var out = document.querySelector("#RefreshResult");
+                out.textContent = "Fetching... (save first if you changed the URL)";
+                ApiClient.ajax({
+                    type: "POST",
+                    url: ApiClient.getUrl("XmltvCleaner/Refresh"),
+                    dataType: "json"
+                }).then(showStatus).catch(function () {
+                    out.textContent = "Refresh request failed.";
+                });
+            });
+
+            document.querySelector("#XmltvCleanerConfigForm")
+                .addEventListener("submit", function (e) {
+                    e.preventDefault();
+                    var page = document.querySelector("#XmltvCleanerConfigPage");
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(pluginUniqueId).then(function (config) {
+                        config.UpstreamUrl = page.querySelector("#UpstreamUrl").value;
+                        config.MinRefetchMinutes = parseInt(page.querySelector("#MinRefetchMinutes").value, 10) || 0;
+                        config.UpstreamTimeoutSeconds = parseInt(page.querySelector("#UpstreamTimeoutSeconds").value, 10) || 120;
+                        ApiClient.updatePluginConfiguration(pluginUniqueId, config).then(function (result) {
+                            Dashboard.processPluginConfigurationUpdateResult(result);
+                        });
+                    });
+                    return false;
+                });
+        })();
+    </script>
+</div>
+</body>
+</html>
