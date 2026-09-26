@@ -81,7 +81,7 @@
                 var lines = [];
                 if (s.FetchedUtc) {
                     lines.push("Last successful fetch: " + new Date(s.FetchedUtc).toLocaleString() + " (" + s.DurationMs + " ms)");
-                    lines.push("Programmes: " + s.Programmes + ", titles cleaned: " + s.TitlesCleaned);
+                    lines.push("Programmes: " + s.Programmes + ", titles cleaned: " + s.TitlesCleaned + ", program ids added: " + s.ProgramIdsAdded);
                     (s.Samples || []).forEach(function (x) { lines.push("  " + x); });
                 }
                 if (s.LastError) {

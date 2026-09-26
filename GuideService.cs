@@ -47,6 +47,7 @@ public sealed class GuideService
         DateTime? FetchedUtc,
         int Programmes,
         int TitlesCleaned,
+        int ProgramIdsAdded,
         IReadOnlyList<string> Samples,
         long DurationMs,
         string? LastError,
@@ -79,7 +80,7 @@ public sealed class GuideService
             }
             catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
             {
-                LastStatus = (LastStatus ?? new RefreshStatus(null, 0, 0, Array.Empty<string>(), 0, null, null))
+                LastStatus = (LastStatus ?? new RefreshStatus(null, 0, 0, 0, Array.Empty<string>(), 0, null, null))
                     with { LastError = ex.Message, LastErrorUtc = DateTime.UtcNow };
 
                 if (File.Exists(_guidePath))
@@ -154,9 +155,9 @@ public sealed class GuideService
         }
 
         sw.Stop();
-        LastStatus = new RefreshStatus(DateTime.UtcNow, result.Programmes, result.TitlesCleaned, result.Samples, sw.ElapsedMilliseconds, null, null);
+        LastStatus = new RefreshStatus(DateTime.UtcNow, result.Programmes, result.TitlesCleaned, result.ProgramIdsAdded, result.Samples, sw.ElapsedMilliseconds, null, null);
         _logger.LogInformation(
-            "Cleaned XMLTV guide: {Programmes} programmes, {Cleaned} titles had a duplicate year stripped ({Ms} ms)",
-            result.Programmes, result.TitlesCleaned, sw.ElapsedMilliseconds);
+            "Cleaned XMLTV guide: {Programmes} programmes, {Cleaned} titles had a duplicate year stripped, {Ids} tms ids copied to dd_progid ({Ms} ms)",
+            result.Programmes, result.TitlesCleaned, result.ProgramIdsAdded, sw.ElapsedMilliseconds);
     }
 }

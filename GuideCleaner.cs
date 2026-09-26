@@ -22,6 +22,15 @@ namespace Jellyfin.Plugin.XmltvCleaner;
 /// genuinely be part of the name (e.g. a remake distinguished by year) and there's then
 /// no year for Jellyfin to re-append anyway.
 ///
+/// Second fix: Channels DVR gives each programme its Gracenote/TMS id as
+/// <c>&lt;episode-num system="tms"&gt;EP000191100039&lt;/episode-num&gt;</c>, but Jellyfin's
+/// XMLTV reader only understands the <c>dd_progid</c> system and drops "tms". Without it
+/// Jellyfin falls back to a ShowId hashed from the episode number alone (its fallback does
+/// <c>str = "-" + episode</c> where it means <c>+=</c>), so S1E5 and S3E5 of a show share a
+/// ShowId and "skip episodes already in library" cancels one as a duplicate of the other.
+/// Copying the tms id into a <c>dd_progid</c> entry gives Jellyfin the real, cross-channel
+/// episode id — the same thing its Schedules Direct provider uses as ShowId.
+///
 /// Streams the document: each <c>&lt;programme&gt;</c> is materialised on its own (the
 /// date comes after the title, so it can't be done token by token) and everything else is
 /// copied straight through, so a 14-day, ~30k-programme, ~28 MB guide never sits in memory
@@ -35,7 +44,11 @@ public static class GuideCleaner
         @"^(?<name>.*\S)\s*\((?<year>\d{4})\)$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
-    public sealed record CleanResult(int Programmes, int TitlesCleaned, IReadOnlyList<string> Samples);
+    private static readonly Regex TmsProgramId = new(
+        @"^(EP|MV|SH|SP)\d{8,}$",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    public sealed record CleanResult(int Programmes, int TitlesCleaned, int ProgramIdsAdded, IReadOnlyList<string> Samples);
 
     public static CleanResult Clean(Stream input, Stream output, CancellationToken cancellationToken)
     {
@@ -56,6 +69,7 @@ public static class GuideCleaner
 
         int programmes = 0;
         int cleaned = 0;
+        int idsAdded = 0;
         var samples = new List<string>();
 
         using var reader = XmlReader.Create(input, readerSettings);
@@ -95,6 +109,11 @@ public static class GuideCleaner
                         }
                     }
 
+                    if (AddProgramId(programme))
+                    {
+                        idsAdded++;
+                    }
+
                     programme.WriteTo(writer);
                 }
                 else
@@ -109,7 +128,33 @@ public static class GuideCleaner
         writer.WriteEndDocument();
         writer.Flush();
 
-        return new CleanResult(programmes, cleaned, samples);
+        return new CleanResult(programmes, cleaned, idsAdded, samples);
+    }
+
+    private static bool AddProgramId(XElement programme)
+    {
+        XElement? tms = null;
+        foreach (var num in programme.Elements("episode-num"))
+        {
+            var system = (string?)num.Attribute("system");
+            if (system == "dd_progid")
+            {
+                return false;
+            }
+
+            if (system == "tms" && tms is null && TmsProgramId.IsMatch(num.Value.Trim()))
+            {
+                tms = num;
+            }
+        }
+
+        if (tms is null)
+        {
+            return false;
+        }
+
+        tms.AddAfterSelf(new XElement("episode-num", new XAttribute("system", "dd_progid"), tms.Value.Trim()));
+        return true;
     }
 
     private static bool CleanProgramme(XElement programme, out string sample)

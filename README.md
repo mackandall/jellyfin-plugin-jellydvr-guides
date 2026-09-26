@@ -12,6 +12,13 @@ This plugin sits between the upstream guide and Jellyfin. It serves a cleaned co
 through unchanged. On a 14-day Channels DVR guide (~30k programmes, 28 MB) that is
 ~2,200 movie titles, cleaned in under a second.
 
+It also copies each programme's Gracenote/TMS id from `<episode-num system="tms">`, which
+Jellyfin ignores, into `<episode-num system="dd_progid">`, which it reads. Jellyfin then
+has a real, cross-channel episode id (its ShowId) instead of a fallback hashed from the
+episode number alone. That fallback makes S1E5 and S3E5 of a show look like the same
+episode, so "skip episodes already in library" cancels one of them. The Episode History
+plugin uses the same id to match guide entries to what was recorded and watched.
+
 Target: Jellyfin 12.0.x (.NET 10).
 
 ## How it works
