@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Common.Api;
+using MediaBrowser.Common.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -17,10 +18,12 @@ namespace Jellyfin.Plugin.XmltvCleaner.Web;
 public sealed class GuideController : ControllerBase
 {
     private readonly GuideService _guideService;
+    private readonly INetworkManager _network;
 
-    public GuideController(GuideService guideService)
+    public GuideController(GuideService guideService, INetworkManager network)
     {
         _guideService = guideService;
+        _network = network;
     }
 
     /// <summary>
@@ -33,6 +36,14 @@ public sealed class GuideController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> GetGuide(CancellationToken cancellationToken)
     {
+        // Home network only (setting): the server itself and the networks Jellyfin counts as LAN.
+        var remote = HttpContext.Connection.RemoteIpAddress;
+        if (Plugin.Instance?.Configuration.LocalNetworkOnly != false
+            && (remote is null || !(System.Net.IPAddress.IsLoopback(remote) || _network.IsInLocalNetwork(remote))))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, "The cleaned guide is only served on the home network (XmltvCleaner settings).");
+        }
+
         try
         {
             var path = await _guideService.GetGuidePathAsync(false, cancellationToken).ConfigureAwait(false);

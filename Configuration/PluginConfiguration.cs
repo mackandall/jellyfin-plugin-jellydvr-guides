@@ -30,4 +30,11 @@ public class PluginConfiguration : BasePluginConfiguration
 
     /// <summary>Seconds to wait for the upstream guide before falling back to the last good copy.</summary>
     public int UpstreamTimeoutSeconds { get; set; } = 120;
+
+    /// <summary>
+    /// The guide endpoint needs no sign-in (Jellyfin downloads it without credentials), so by
+    /// default it only answers the server itself and the home network (Jellyfin's own LAN
+    /// settings, Dashboard › Networking). Off: anyone who can reach the server can read it.
+    /// </summary>
+    public bool LocalNetworkOnly { get; set; } = true;
 }

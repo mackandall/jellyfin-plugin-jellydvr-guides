@@ -33,6 +33,14 @@
                         <input id="UpstreamTimeoutSeconds" name="UpstreamTimeoutSeconds" type="number" min="5" is="emby-input" />
                         <div class="fieldDescription">If the upstream fails or times out, the last good cleaned copy is served instead.</div>
                     </div>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="LocalNetworkOnly" name="LocalNetworkOnly" type="checkbox" is="emby-checkbox" />
+                            <span>Only serve the cleaned guide on the home network</span>
+                        </label>
+                        <div class="fieldDescription checkboxFieldDescription">The guide address needs no sign-in (Jellyfin downloads it without one). On: only the server itself and the networks Jellyfin counts as local (Dashboard &rarr; Networking) can read it.</div>
+                    </div>
                 </div>
 
                 <div class="verticalSection">
@@ -69,6 +77,7 @@
                 page.querySelector("#UpstreamUrl").value = config.UpstreamUrl || "";
                 page.querySelector("#MinRefetchMinutes").value = config.MinRefetchMinutes != null ? config.MinRefetchMinutes : 10;
                 page.querySelector("#UpstreamTimeoutSeconds").value = config.UpstreamTimeoutSeconds || 120;
+                page.querySelector("#LocalNetworkOnly").checked = config.LocalNetworkOnly !== false;
                 page.querySelector("#CleanedUrl").textContent = ApiClient.getUrl("XmltvCleaner/guide.xml");
             }
 
@@ -126,6 +135,7 @@
                         config.UpstreamUrl = page.querySelector("#UpstreamUrl").value;
                         config.MinRefetchMinutes = parseInt(page.querySelector("#MinRefetchMinutes").value, 10) || 0;
                         config.UpstreamTimeoutSeconds = parseInt(page.querySelector("#UpstreamTimeoutSeconds").value, 10) || 120;
+                        config.LocalNetworkOnly = page.querySelector("#LocalNetworkOnly").checked;
                         ApiClient.updatePluginConfiguration(pluginUniqueId, config).then(function (result) {
                             Dashboard.processPluginConfigurationUpdateResult(result);
                         });
