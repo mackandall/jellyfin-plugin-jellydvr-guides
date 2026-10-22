@@ -36,7 +36,17 @@ Target: Jellyfin 12.0.x (.NET 10).
 - Programme IDs are unaffected (Jellyfin builds them from channel + start time), so
   existing scheduled recordings keep working.
 
-## Build and install
+## Install
+
+### From the JellyDVR plugin repository (no build needed)
+
+1. Dashboard → Plugins → **Repositories** → add (one list for all the JellyDVR plugins):
+   ```
+   https://raw.githubusercontent.com/mackandall/jdvr-client/main/plugins/manifest.json
+   ```
+2. Dashboard → Plugins → **Catalog** → **XMLTV Guide Cleaner** → Install, then restart Jellyfin.
+
+### Or build from source
 
 ```bash
 dotnet build -c Release
