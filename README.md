@@ -36,6 +36,17 @@ Target: Jellyfin 12.0.x (.NET 10).
 - Programme IDs are unaffected (Jellyfin builds them from channel + start time), so
   existing scheduled recordings keep working.
 
+## Screenshots
+
+From a real server (Jellyfin 12.2). Dashboard → Plugins → XMLTV Guide Cleaner (the upstream URL above these is
+left out):
+
+![Settings](docs/screenshots/settings.jpg)
+
+The last fetch: how many titles were cleaned, with examples:
+
+![Last fetch](docs/screenshots/status.jpg)
+
 ## Install
 
 ### From the JellyDVR plugin repository (no build needed)
