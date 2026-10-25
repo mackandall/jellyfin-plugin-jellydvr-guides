@@ -54,4 +54,16 @@ public class PluginConfiguration : BasePluginConfiguration
     /// settings, Dashboard › Networking). Off: anyone who can reach the server can read it.
     /// </summary>
     public bool LocalNetworkOnly { get; set; } = true;
+
+    /// <summary>Schedules Direct account name (a guide whose URL is "sd:&lt;lineup&gt;" comes from it).</summary>
+    public string SdUsername { get; set; } = string.Empty;
+
+    /// <summary>
+    /// SHA-1 of the Schedules Direct password, lowercase hex: what their API takes. The
+    /// password itself is never stored (the settings page sends it once to be hashed).
+    /// </summary>
+    public string SdPasswordHash { get; set; } = string.Empty;
+
+    /// <summary>Days of guide to keep from Schedules Direct, from today.</summary>
+    public int SdDays { get; set; } = 14;
 }

@@ -58,7 +58,7 @@ public sealed class GuideController : ControllerBase
 
         try
         {
-            var path = await _guideService.GetGuidePathAsync(feed, false, cancellationToken).ConfigureAwait(false);
+            var path = await _guideService.GetGuidePathAsync(feed, false, cancellationToken, ServerBase(Request)).ConfigureAwait(false);
             return PhysicalFile(path, "application/xml");
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
@@ -66,6 +66,9 @@ public sealed class GuideController : ControllerBase
             return StatusCode(StatusCodes.Status503ServiceUnavailable, ex.Message);
         }
     }
+
+    /// <summary>This server's address as the caller reached it, e.g. "http://192.168.1.188:8096/".</summary>
+    internal static string ServerBase(HttpRequest request) => $"{request.Scheme}://{request.Host}{request.PathBase}/";
 
     [HttpPost("Refresh")]
     [Authorize(Policy = Policies.RequiresElevation)]
@@ -76,7 +79,7 @@ public sealed class GuideController : ControllerBase
         {
             try
             {
-                await _guideService.GetGuidePathAsync(feed, true, cancellationToken).ConfigureAwait(false);
+                await _guideService.GetGuidePathAsync(feed, true, cancellationToken, ServerBase(Request)).ConfigureAwait(false);
             }
             catch (Exception) when (!cancellationToken.IsCancellationRequested)
             {

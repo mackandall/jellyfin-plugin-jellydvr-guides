@@ -8,7 +8,7 @@
 <div id="XmltvCleanerConfigPage"
      data-role="page"
      class="page type-interior pluginConfigurationPage"
-     data-require="emby-input,emby-button">
+     data-require="emby-input,emby-button,emby-checkbox">
     <div data-role="content">
         <div class="content-primary">
             <form id="XmltvCleanerConfigForm">
@@ -50,6 +50,38 @@
                 </div>
 
                 <div class="verticalSection">
+                    <h2>Schedules Direct</h2>
+                    <div class="fieldDescription" style="margin-bottom:.8em;">
+                        A guide whose URL is <code>sd:&lt;lineup&gt;</code> (main or "More guides") comes from your Schedules Direct
+                        account. The plugin downloads what changed once a day (Scheduled Tasks &rarr; "Update Schedules Direct
+                        guide", 5:00) and keeps a copy here, so Jellyfin's guide refreshes never reach Schedules Direct. Pictures
+                        are fetched the first time they're shown, then kept. Remove Jellyfin's own Schedules Direct guide provider
+                        once you use this, or it keeps asking them on every refresh.
+                    </div>
+
+                    <div class="inputContainer">
+                        <input id="SdUsername" type="text" is="emby-input" label="Account name" autocomplete="off" />
+                    </div>
+                    <div class="inputContainer">
+                        <input id="SdPassword" type="password" is="emby-input" label="Password" autocomplete="new-password" />
+                        <div class="fieldDescription">Checked by signing in once; only its hash (Schedules Direct's own form) is kept.</div>
+                    </div>
+                    <button id="SdSignIn" type="button" is="emby-button" class="raised block"><span>Sign in to Schedules Direct</span></button>
+                    <div id="SdAccountResult" class="fieldDescription" style="margin-top:.5em;"></div>
+
+                    <div class="inputContainer" style="margin-top:1.2em;">
+                        <input id="SdDays" type="number" min="1" max="21" is="emby-input" label="Days of guide" />
+                        <div class="fieldDescription">From today (Save to keep). 14 is plenty for recordings.</div>
+                    </div>
+
+                    <h3>Your lineups</h3>
+                    <div id="SdLineups" class="fieldDescription" style="white-space:pre-line;">Update once to list them.</div>
+
+                    <button id="SdUpdate" type="button" is="emby-button" class="raised block" style="margin-top:1em;"><span>Update from Schedules Direct now</span></button>
+                    <div id="SdStatus" class="fieldDescription" style="margin-top:.5em;white-space:pre-line;"></div>
+                </div>
+
+                <div class="verticalSection">
                     <h2>Point Jellyfin at the cleaned guide</h2>
                     <div class="fieldDescription">
                         In Dashboard &rarr; Live TV, edit the XMLTV guide provider and set its file or URL to the cleaned
@@ -85,6 +117,9 @@
                 page.querySelector("#MinRefetchMinutes").value = config.MinRefetchMinutes != null ? config.MinRefetchMinutes : 10;
                 page.querySelector("#UpstreamTimeoutSeconds").value = config.UpstreamTimeoutSeconds || 120;
                 page.querySelector("#LocalNetworkOnly").checked = config.LocalNetworkOnly !== false;
+                page.querySelector("#SdUsername").value = config.SdUsername || "";
+                page.querySelector("#SdDays").value = config.SdDays || 14;
+                page.querySelector("#SdAccountResult").textContent = config.SdPasswordHash ? "Account saved (" + config.SdUsername + ")." : "No account saved.";
                 page.querySelector("#ExtraUpstreamUrls").value = (config.ExtraUpstreamUrls || []).join("\n");
                 showUrls(config);
             }
@@ -128,6 +163,63 @@
                 return lines;
             }
 
+            function showSd(s) {
+                var out = document.querySelector("#SdStatus");
+                if (!s) {
+                    out.textContent = "";
+                    return;
+                }
+                var lines = [];
+                var u = s.Update;
+                if (u && u.FinishedUtc) {
+                    lines.push("Last update: " + new Date(u.FinishedUtc).toLocaleString() + " (" + Math.round(u.DurationMs / 1000) + " s): " +
+                        u.Lineups + " lineups, " + u.Stations + " stations; " + u.DaysFetched + " changed days and " + u.ProgramsFetched + " programmes downloaded.");
+                }
+                if (u && u.Error) {
+                    lines.push("Last error (" + new Date(u.ErrorUtc).toLocaleString() + "): " + u.Error);
+                }
+                if (s.Blocked) { lines.push("Paused " + s.Blocked); }
+                if (s.ImagesBlocked) { lines.push("Pictures: " + s.ImagesBlocked); }
+                if (!lines.length) { lines.push("No update since the server started."); }
+                out.textContent = lines.join("\n");
+                var ls = s.Lineups || [];
+                document.querySelector("#SdLineups").textContent = ls.length
+                    ? ls.map(function (l) {
+                        return "sd:" + l.Lineup + "    " + (l.Name || "") + (l.Transport ? " \u00b7 " + l.Transport : "") + (l.Location ? " \u00b7 " + l.Location : "");
+                    }).join("\n") + "\n\nPut one of these in the main URL or in More guides, then Save."
+                    : "Update once to list them (add lineups on the Schedules Direct website).";
+            }
+
+            function loadSd() {
+                ApiClient.ajax({ type: "GET", url: ApiClient.getUrl("XmltvCleaner/SchedulesDirect/Status"), dataType: "json" })
+                    .then(showSd).catch(function () { showSd(null); });
+            }
+
+            document.querySelector("#SdSignIn").addEventListener("click", function () {
+                var page = document.querySelector("#XmltvCleanerConfigPage");
+                var out = page.querySelector("#SdAccountResult");
+                out.textContent = "Signing in...";
+                ApiClient.ajax({
+                    type: "POST",
+                    url: ApiClient.getUrl("XmltvCleaner/SchedulesDirect/Account"),
+                    data: JSON.stringify({ Username: page.querySelector("#SdUsername").value, Password: page.querySelector("#SdPassword").value }),
+                    contentType: "application/json",
+                    dataType: "text"
+                }).then(function (text) {
+                    page.querySelector("#SdPassword").value = "";
+                    out.textContent = (text || "Signed in.").replace(/^"|"$/g, "");
+                }).catch(function (e) {
+                    var why = e && e.text ? e.text() : Promise.resolve("");
+                    Promise.resolve(why).then(function (t) { out.textContent = "Sign-in failed. " + (t || ""); });
+                });
+            });
+
+            document.querySelector("#SdUpdate").addEventListener("click", function () {
+                document.querySelector("#SdStatus").textContent = "Updating from Schedules Direct... (the first time takes a few minutes)";
+                ApiClient.ajax({ type: "POST", url: ApiClient.getUrl("XmltvCleaner/SchedulesDirect/Update"), dataType: "json" })
+                    .then(showSd).catch(function () { document.querySelector("#SdStatus").textContent = "Update request failed."; });
+            });
+
             document.querySelector("#XmltvCleanerConfigPage")
                 .addEventListener("pageshow", function () {
                     var page = this;
@@ -141,6 +233,7 @@
                         url: ApiClient.getUrl("XmltvCleaner/Status"),
                         dataType: "json"
                     }).then(showStatus).catch(function () { showStatus(null); });
+                    loadSd();
                 });
 
             document.querySelector("#RefreshBtn").addEventListener("click", function () {
@@ -168,6 +261,7 @@
                         config.MinRefetchMinutes = parseInt(page.querySelector("#MinRefetchMinutes").value, 10) || 0;
                         config.UpstreamTimeoutSeconds = parseInt(page.querySelector("#UpstreamTimeoutSeconds").value, 10) || 120;
                         config.LocalNetworkOnly = page.querySelector("#LocalNetworkOnly").checked;
+                        config.SdDays = parseInt(page.querySelector("#SdDays").value, 10) || 14;
                         ApiClient.updatePluginConfiguration(pluginUniqueId, config).then(function (result) {
                             showUrls(config);
                             Dashboard.processPluginConfigurationUpdateResult(result);

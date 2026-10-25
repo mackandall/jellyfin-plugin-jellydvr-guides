@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.XmltvCleaner.Configuration;
+using Jellyfin.Plugin.XmltvCleaner.SchedulesDirect;
 using MediaBrowser.Common.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -15,6 +16,8 @@ namespace Jellyfin.Plugin.XmltvCleaner;
 /// Fetches the upstream guide, runs it through <see cref="GuideCleaner"/>, and keeps the
 /// last good cleaned copy on disk. Feed 1 is the main upstream (guide.xml); feeds 2, 3, …
 /// are the extra upstreams (guide2.xml, guide3.xml, …), each with its own copy and status.
+/// An upstream "sd:&lt;lineup&gt;" is a Schedules Direct lineup, written from the local copy
+/// <see cref="SdUpdater"/> keeps (never fetched from Schedules Direct on a guide request).
 ///
 /// Serving the cleaned guide on demand (rather than writing a file on a separate
 /// schedule) means Jellyfin's own "Refresh Guide" task always gets data as fresh as the
@@ -27,15 +30,19 @@ namespace Jellyfin.Plugin.XmltvCleaner;
 /// </summary>
 public sealed class GuideService
 {
+    public const string SdPrefix = "sd:";
+
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly SdUpdater _sd;
     private readonly ILogger<GuideService> _logger;
     private readonly SemaphoreSlim _lock = new(1, 1);
     private readonly string _directory;
     private readonly Dictionary<int, RefreshStatus> _statuses = new();
 
-    public GuideService(IHttpClientFactory httpClientFactory, IApplicationPaths applicationPaths, ILogger<GuideService> logger)
+    public GuideService(IHttpClientFactory httpClientFactory, IApplicationPaths applicationPaths, SdUpdater sd, ILogger<GuideService> logger)
     {
         _httpClientFactory = httpClientFactory;
+        _sd = sd;
         _logger = logger;
 
         // Under the server's data dir, not the plugin's own (versioned) install folder, so
@@ -86,7 +93,8 @@ public sealed class GuideService
     /// (or <paramref name="force"/> is set). Throws only when upstream fails AND no previous
     /// cleaned copy exists.
     /// </summary>
-    public async Task<string> GetGuidePathAsync(int feed, bool force, CancellationToken cancellationToken)
+    /// <param name="imageBase">The server's address as Jellyfin reached it ("http://host:8096/"), for Schedules Direct guides' picture links.</param>
+    public async Task<string> GetGuidePathAsync(int feed, bool force, CancellationToken cancellationToken, string? imageBase = null)
     {
         var cfg = Plugin.Instance?.Configuration ?? new PluginConfiguration();
         var upstream = UpstreamOf(cfg, feed) ?? throw new InvalidOperationException($"There is no guide {feed} (plugin settings).");
@@ -95,15 +103,27 @@ public sealed class GuideService
         await _lock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            if (!force && File.Exists(guidePath)
-                && File.GetLastWriteTimeUtc(guidePath) >= DateTime.UtcNow.AddMinutes(-Math.Max(0, cfg.MinRefetchMinutes)))
+            var fromSd = upstream.StartsWith(SdPrefix, StringComparison.OrdinalIgnoreCase);
+            var stamp = Path.Combine(_sd.Root, "updated");
+            var fresh = fromSd
+                // Schedules Direct: rewritten only after the local copy was updated.
+                ? File.Exists(guidePath) && File.Exists(stamp) && File.GetLastWriteTimeUtc(guidePath) >= File.GetLastWriteTimeUtc(stamp)
+                : File.Exists(guidePath) && File.GetLastWriteTimeUtc(guidePath) >= DateTime.UtcNow.AddMinutes(-Math.Max(0, cfg.MinRefetchMinutes));
+            if (!force && fresh)
             {
                 return guidePath;
             }
 
             try
             {
-                await RefreshAsync(feed, upstream, guidePath, cfg, cancellationToken).ConfigureAwait(false);
+                if (fromSd)
+                {
+                    WriteFromSd(feed, upstream[SdPrefix.Length..].Trim(), guidePath, cfg, imageBase ?? "http://localhost:8096/", cancellationToken);
+                }
+                else
+                {
+                    await RefreshAsync(feed, upstream, guidePath, cfg, cancellationToken).ConfigureAwait(false);
+                }
             }
             catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
             {
@@ -126,6 +146,49 @@ public sealed class GuideService
         finally
         {
             _lock.Release();
+        }
+    }
+
+    // A Schedules Direct lineup from the local copy, through the same cleaning as any guide.
+    private void WriteFromSd(int feed, string lineup, string guidePath, PluginConfiguration cfg, string imageBase, CancellationToken cancellationToken)
+    {
+        Directory.CreateDirectory(_directory);
+        var rawPath = guidePath + ".sd";
+        var tempPath = guidePath + ".tmp";
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            using (var raw = new FileStream(rawPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                SdGuideWriter.Write(_sd, lineup, Math.Clamp(cfg.SdDays, 1, 21), imageBase, raw, cancellationToken);
+            }
+
+            GuideCleaner.CleanResult result;
+            using (var input = File.OpenRead(rawPath))
+            using (var output = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                result = GuideCleaner.Clean(input, output, cancellationToken);
+            }
+
+            if (result.Programmes == 0)
+            {
+                throw new InvalidDataException($"Schedules Direct lineup {lineup} has no programmes in the local copy.");
+            }
+
+            File.Move(tempPath, guidePath, overwrite: true);
+            sw.Stop();
+            SetStatus(feed, new RefreshStatus(DateTime.UtcNow, result.Programmes, result.TitlesCleaned, result.ProgramIdsAdded, result.Samples, sw.ElapsedMilliseconds, null, null));
+            _logger.LogInformation("Wrote XMLTV guide {Feed} from Schedules Direct lineup {Lineup}: {Programmes} programmes ({Ms} ms)", feed, lineup, result.Programmes, sw.ElapsedMilliseconds);
+        }
+        finally
+        {
+            foreach (var f in new[] { rawPath, tempPath })
+            {
+                if (File.Exists(f))
+                {
+                    File.Delete(f);
+                }
+            }
         }
     }
 

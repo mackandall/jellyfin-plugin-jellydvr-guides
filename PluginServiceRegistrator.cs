@@ -12,6 +12,9 @@ public sealed class PluginServiceRegistrator : IPluginServiceRegistrator
 {
     public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
     {
+        serviceCollection.AddSingleton<SchedulesDirect.SdClient>();
+        serviceCollection.AddSingleton<SchedulesDirect.SdUpdater>();
+        serviceCollection.AddSingleton<SchedulesDirect.SdImages>();
         serviceCollection.AddSingleton<GuideService>();
 
         // Jellyfin builds its MVC ApplicationPartManager from its own assembly before any
