@@ -160,7 +160,8 @@ public sealed class ProviderSync
         var refresh = _tasks.ScheduledTasks.FirstOrDefault(t => t.ScheduledTask.Key == "RefreshGuide");
         if (refresh is not null)
         {
-            _tasks.Execute(refresh, new TaskOptions());
+            // Queued, not Execute: Execute does nothing while a refresh is already running.
+            _tasks.QueueScheduledTask(refresh.ScheduledTask, new TaskOptions());
         }
     }
 
