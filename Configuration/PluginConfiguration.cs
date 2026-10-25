@@ -39,6 +39,12 @@ public class GuideSource
     /// <summary>Copy Gracenote (tms) episode ids to dd_progid, which Jellyfin reads.</summary>
     public bool CleanIds { get; set; } = true;
 
+    /// <summary>
+    /// Schedules Direct: write only the channel numbers <see cref="Tuners"/> have (a lineup has
+    /// hundreds more, and Jellyfin re-reads the whole guide for every channel it refreshes).
+    /// </summary>
+    public bool OnlyTunerChannels { get; set; } = true;
+
     /// <summary>Keep a Jellyfin guide provider pointing here, limited to <see cref="Tuners"/>.</summary>
     public bool ManageProvider { get; set; }
 

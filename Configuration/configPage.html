@@ -152,6 +152,9 @@
                         <input id="SrcDays" type="number" min="1" max="21" class="emby-input" />
                     </div>
                 </div>
+                <div class="jg-box">
+                    <label class="jg-check"><input id="SrcOnlyTuner" type="checkbox" /><span>Only the channels the tuners below have<br /><span class="fieldDescription">A lineup has hundreds of channels your tuner may not; Jellyfin re-reads the whole guide for every channel it refreshes. Tick the tuners under "Jellyfin guide provider".</span></span></label>
+                </div>
                 <div class="jg-box fieldDescription">Uses the Schedules Direct account below the sources. No cleaning step: the plugin writes this guide itself, with the ids and categories Jellyfin needs.</div>
             </div>
 
@@ -317,6 +320,7 @@
                     var f = st.Fetch;
                     if (f && f.FetchedUtc) {
                         var bits = [when(f.FetchedUtc), f.Programmes ? f.Programmes.toLocaleString() + " programmes" : "saved copy"];
+                        if (f.ChannelsInLineup) { bits.splice(1, 0, f.Channels + " of " + f.ChannelsInLineup + " channels"); }
                         if (f.TitlesCleaned) { bits.push(f.TitlesCleaned.toLocaleString() + " years removed"); }
                         if (f.ProgramIdsAdded) { bits.push(f.ProgramIdsAdded.toLocaleString() + " ids added"); }
                         row(isSd ? "Guide written" : "Last fetch", bits.join(" · "));
@@ -343,7 +347,7 @@
                 q("#SrcSd").hidden = !isSd;
                 q("#SrcCleanOptions").hidden = !q("#SrcClean").checked;
                 q("#SrcAddress").textContent = ApiClient.getUrl("JellyDvrGuides/guide/" + (q("#SrcId").value || "…") + ".xml");
-                var manage = q("#SrcManage").checked;
+                var manage = q("#SrcManage").checked || (isSd && q("#SrcOnlyTuner").checked);
                 Array.prototype.forEach.call(q("#SrcTuners").querySelectorAll("input"), function (c) { c.disabled = !manage; });
             }
 
@@ -351,7 +355,7 @@
                 editing = index;
                 var s = index >= 0 ? config.Sources[index] : {
                     Id: "", Name: "", Type: "xmltv", Url: "", Lineup: "", Days: 14,
-                    Clean: true, CleanYears: true, CleanIds: true, ManageProvider: true, Tuners: []
+                    Clean: true, CleanYears: true, CleanIds: true, ManageProvider: true, OnlyTunerChannels: true, Tuners: []
                 };
                 q("#SourceDialogTitle").textContent = index >= 0 ? "Edit guide source" : "Add guide source";
                 q("#SrcName").value = s.Name || "";
@@ -364,6 +368,7 @@
                 q("#SrcId").value = s.Id || "";
                 q("#SrcId").dataset.auto = index >= 0 ? "" : "1";
                 q("#SrcManage").checked = !!s.ManageProvider;
+                q("#SrcOnlyTuner").checked = s.OnlyTunerChannels !== false;
 
                 var lineup = q("#SrcLineup");
                 lineup.innerHTML = "";
@@ -421,6 +426,7 @@
                     CleanYears: q("#SrcCleanYears").checked,
                     CleanIds: q("#SrcCleanIds").checked,
                     ManageProvider: q("#SrcManage").checked,
+                    OnlyTunerChannels: q("#SrcOnlyTuner").checked,
                     Tuners: Array.prototype.filter.call(q("#SrcTuners").querySelectorAll("input"), function (c) { return c.checked; })
                         .map(function (c) { return c.value; }),
                     ProviderId: old.ProviderId || ""
@@ -433,6 +439,7 @@
                 if (config.Sources.some(function (x, i) { return i !== editing && x.Id.toLowerCase() === s.Id; })) { return "Another source already uses that address name."; }
                 if (s.Type === "xmltv" && !/^https?:\/\//i.test(s.Url)) { return "Enter the guide's address (http://…)."; }
                 if (s.Type === "sd" && !s.Lineup) { return "Pick a lineup (sign in and Update now to list them)."; }
+                if (s.Type === "sd" && s.OnlyTunerChannels && !s.Tuners.length) { return "Tick the tuners whose channels the guide should have."; }
                 if (s.ManageProvider && !s.Tuners.length) { return "Tick the tuners the guide is for (a guide for all tuners gives each tuner's channels the wrong guide)."; }
                 return null;
             }
@@ -459,6 +466,7 @@
             });
             q("#SrcClean").addEventListener("change", showType);
             q("#SrcManage").addEventListener("change", showType);
+            q("#SrcOnlyTuner").addEventListener("change", showType);
             q("#SrcName").addEventListener("input", function () {
                 if (q("#SrcId").dataset.auto) {
                     q("#SrcId").value = slug(q("#SrcName").value);

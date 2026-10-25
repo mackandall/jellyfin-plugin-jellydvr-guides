@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Jellyfin.Plugin.XmltvCleaner.Configuration;
 using Jellyfin.Plugin.XmltvCleaner.SchedulesDirect;
 using MediaBrowser.Common.Configuration;
+using MediaBrowser.Controller.LiveTv;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.XmltvCleaner;
@@ -33,15 +34,17 @@ public sealed class GuideService
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly SdUpdater _sd;
+    private readonly ITunerHostManager _tunerHosts;
     private readonly ILogger<GuideService> _logger;
     private readonly SemaphoreSlim _lock = new(1, 1);
     private readonly string _directory;
     private readonly Dictionary<string, RefreshStatus> _statuses = new(StringComparer.OrdinalIgnoreCase);
 
-    public GuideService(IHttpClientFactory httpClientFactory, IApplicationPaths applicationPaths, SdUpdater sd, ILogger<GuideService> logger)
+    public GuideService(IHttpClientFactory httpClientFactory, IApplicationPaths applicationPaths, SdUpdater sd, ITunerHostManager tunerHosts, ILogger<GuideService> logger)
     {
         _httpClientFactory = httpClientFactory;
         _sd = sd;
+        _tunerHosts = tunerHosts;
         _logger = logger;
 
         // Under the server's data dir, not the plugin's own (versioned) install folder, so
@@ -64,17 +67,62 @@ public sealed class GuideService
         IReadOnlyList<string> Samples,
         long DurationMs,
         string? LastError,
-        DateTime? LastErrorUtc);
+        DateTime? LastErrorUtc,
+        int Channels = 0,
+        int ChannelsInLineup = 0);
 
     public static GuideSource? Find(PluginConfiguration cfg, string id) =>
         cfg.Sources.FirstOrDefault(s => string.Equals(s.Id, id, StringComparison.OrdinalIgnoreCase));
 
     // Address names are checked by the settings page; this keeps a hand-edited one from
     // naming a file outside the folder.
-    private static string Signature(GuideSource s) =>
-        string.Join('|', s.Type, s.Url.Trim(), s.Lineup.Trim(), s.Days, s.Clean, s.CleanYears, s.CleanIds);
+    // What a copy was made from; the tuners' channel numbers count, so a channel added to a
+    // tuner gets its guide at the next request.
+    private static string Signature(GuideSource s, ISet<string>? numbers = null) =>
+        string.Join('|', s.Type, s.Url.Trim(), s.Lineup.Trim(), s.Days, s.Clean, s.CleanYears, s.CleanIds)
+        + (numbers is null ? string.Empty : "|" + string.Join(',', numbers.OrderBy(n => n, StringComparer.Ordinal)));
 
-    private static void SaveSignature(GuideSource source, string guidePath) => File.WriteAllText(guidePath + ".src", Signature(source));
+    private static void SaveSignature(GuideSource source, string guidePath, ISet<string>? numbers = null) => File.WriteAllText(guidePath + ".src", Signature(source, numbers));
+
+    /// <summary>
+    /// The channel numbers the source's tuners have (Jellyfin's cached channel lists), or null
+    /// for the whole lineup: no tuners ticked, or none of them answered.
+    /// </summary>
+    private async Task<ISet<string>?> TunerNumbersAsync(GuideSource source, CancellationToken ct)
+    {
+        var tuners = new HashSet<string>(source.Tuners, StringComparer.OrdinalIgnoreCase);
+        if (tuners.Count == 0)
+        {
+            return null;
+        }
+
+        var numbers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var host in _tunerHosts.TunerHosts)
+        {
+            try
+            {
+                foreach (var channel in await host.GetChannels(true, ct).ConfigureAwait(false))
+                {
+                    if (channel.TunerHostId is not null && tuners.Contains(channel.TunerHostId) && !string.IsNullOrWhiteSpace(channel.Number))
+                    {
+                        numbers.Add(SdGuideWriter.NormalizeNumber(channel.Number));
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Couldn't list the channels of {Type} tuners for guide {Source}", host.Type, source.Id);
+            }
+        }
+
+        if (numbers.Count == 0)
+        {
+            _logger.LogWarning("Guide {Source}: its tuners listed no channels; writing the whole lineup", source.Id);
+            return null;
+        }
+
+        return numbers;
+    }
 
     private string PathOf(string id) =>
         System.Text.RegularExpressions.Regex.IsMatch(id, "^[A-Za-z0-9][A-Za-z0-9_-]*$")
@@ -131,9 +179,10 @@ public sealed class GuideService
         try
         {
             var fromSd = source.Type == GuideSource.SchedulesDirect;
+            var numbers = fromSd && source.OnlyTunerChannels ? await TunerNumbersAsync(source, cancellationToken).ConfigureAwait(false) : null;
             var stamp = Path.Combine(_sd.Root, "updated");
             // A copy made under other settings (type, address, lineup, cleaning) is never fresh.
-            var sameSettings = File.Exists(guidePath + ".src") && File.ReadAllText(guidePath + ".src") == Signature(source);
+            var sameSettings = File.Exists(guidePath + ".src") && File.ReadAllText(guidePath + ".src") == Signature(source, numbers);
             var fresh = sameSettings && (fromSd
                 // Schedules Direct: rewritten only after the local copy was updated.
                 ? File.Exists(guidePath) && File.Exists(stamp) && File.GetLastWriteTimeUtc(guidePath) >= File.GetLastWriteTimeUtc(stamp)
@@ -156,7 +205,7 @@ public sealed class GuideService
                         await _sd.UpdateAsync(false, null, cancellationToken).ConfigureAwait(false);
                     }
 
-                    WriteFromSd(source, guidePath, imageBase ?? "http://localhost:8096/", cancellationToken);
+                    WriteFromSd(source, guidePath, imageBase ?? "http://localhost:8096/", numbers, cancellationToken);
                 }
                 else
                 {
@@ -189,17 +238,17 @@ public sealed class GuideService
 
     // A Schedules Direct lineup from the local copy. No cleaning: the writer gives Jellyfin
     // what it needs already.
-    private void WriteFromSd(GuideSource source, string guidePath, string imageBase, CancellationToken cancellationToken)
+    private void WriteFromSd(GuideSource source, string guidePath, string imageBase, ISet<string>? numbers, CancellationToken cancellationToken)
     {
         Directory.CreateDirectory(_directory);
         var tempPath = guidePath + ".tmp";
         var sw = Stopwatch.StartNew();
         try
         {
-            int programmes;
+            int programmes, channels, inLineup;
             using (var output = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
             {
-                programmes = SdGuideWriter.Write(_sd, source.Lineup.Trim(), Math.Clamp(source.Days, 1, 21), imageBase, output, cancellationToken);
+                (programmes, channels, inLineup) = SdGuideWriter.Write(_sd, source.Lineup.Trim(), Math.Clamp(source.Days, 1, 21), imageBase, output, cancellationToken, numbers);
             }
 
             if (programmes == 0)
@@ -208,10 +257,12 @@ public sealed class GuideService
             }
 
             File.Move(tempPath, guidePath, overwrite: true);
-            SaveSignature(source, guidePath);
+            SaveSignature(source, guidePath, numbers);
             sw.Stop();
-            SetStatus(source.Id, new RefreshStatus(DateTime.UtcNow, programmes, 0, 0, Array.Empty<string>(), sw.ElapsedMilliseconds, null, null));
-            _logger.LogInformation("Wrote guide {Source} from Schedules Direct lineup {Lineup}: {Programmes} programmes ({Ms} ms)", source.Id, source.Lineup, programmes, sw.ElapsedMilliseconds);
+            SetStatus(source.Id, new RefreshStatus(DateTime.UtcNow, programmes, 0, 0, Array.Empty<string>(), sw.ElapsedMilliseconds, null, null, channels, inLineup));
+            _logger.LogInformation(
+                "Wrote guide {Source} from Schedules Direct lineup {Lineup}: {Channels} of {InLineup} channels, {Programmes} programmes ({Ms} ms)",
+                source.Id, source.Lineup, channels, inLineup, programmes, sw.ElapsedMilliseconds);
         }
         finally
         {

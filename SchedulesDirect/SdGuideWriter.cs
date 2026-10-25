@@ -21,8 +21,13 @@ public static class SdGuideWriter
 {
     private const string XmltvTime = "yyyyMMddHHmmss '+0000'";
 
-    /// <summary>Writes the guide; returns how many programmes it has. Throws when the lineup isn't in the local copy.</summary>
-    public static int Write(SdUpdater cache, string lineup, int days, string imageBase, Stream output, CancellationToken ct)
+    /// <summary>
+    /// Writes the guide: every channel of the lineup, or only those whose number is in
+    /// <paramref name="onlyNumbers"/> (compared through <see cref="NormalizeNumber"/>). Returns
+    /// the programmes and channels written and the lineup's channel count. Throws when the
+    /// lineup isn't in the local copy.
+    /// </summary>
+    public static (int Programmes, int Channels, int InLineup) Write(SdUpdater cache, string lineup, int days, string imageBase, Stream output, CancellationToken ct, ISet<string>? onlyNumbers = null)
     {
         var lineupPath = cache.LineupPath(lineup);
         if (!File.Exists(lineupPath))
@@ -51,6 +56,12 @@ public static class SdGuideWriter
             }
 
             channels.Add((number, station));
+        }
+
+        var inLineup = channels.Count;
+        if (onlyNumbers is not null)
+        {
+            channels = channels.Where(c => onlyNumbers.Contains(NormalizeNumber(c.Number))).ToList();
         }
 
         var settings = new XmlWriterSettings { Encoding = new UTF8Encoding(false), Indent = true };
@@ -116,8 +127,12 @@ public static class SdGuideWriter
 
         w.WriteEndElement();
         w.WriteEndDocument();
-        return count;
+        return (count, channels.Count, inLineup);
     }
+
+    /// <summary>A channel number as tuners and lineups both can write it: "004-1" and "4.1" are 4.1, "0202" is 202.</summary>
+    public static string NormalizeNumber(string number) =>
+        string.Join('.', number.Trim().Replace('-', '.').Replace('_', '.').Split('.').Select(p => p.TrimStart('0') is { Length: > 0 } t ? t : "0"));
 
     private static void WriteProgramme(XmlWriter w, string channel, string id, DateTime start, JsonObject air, JsonObject? d, string imageBase)
     {
