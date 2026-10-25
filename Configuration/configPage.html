@@ -152,9 +152,6 @@
                         <input id="SrcDays" type="number" min="1" max="21" class="emby-input" />
                     </div>
                 </div>
-                <div class="jg-box">
-                    <label class="jg-check"><input id="SrcOnlyTuner" type="checkbox" /><span>Only the channels the tuners below have<br /><span class="fieldDescription">A lineup has hundreds of channels your tuner may not; Jellyfin re-reads the whole guide for every channel it refreshes. Tick the tuners under "Jellyfin guide provider".</span></span></label>
-                </div>
                 <div class="jg-box fieldDescription">Uses the Schedules Direct account below the sources. No cleaning step: the plugin writes this guide itself, with the ids and categories Jellyfin needs.</div>
             </div>
 
@@ -165,8 +162,11 @@
             </div>
 
             <div class="jg-box">
-                <label class="jg-check"><input id="SrcManage" type="checkbox" /><span>Add it to Jellyfin's guide providers for me<br /><span class="fieldDescription">Creates (or updates) the XMLTV guide provider pointing here, for these tuners only:</span></span></label>
-                <div id="SrcTuners" class="jg-tuners jg-indent"></div>
+                <div style="font-weight:600;margin-bottom:.2em;">Tuners this guide is for</div>
+                <div id="SrcTuners" class="jg-tuners"></div>
+                <div style="border-top:1px solid rgba(255,255,255,.08);margin:.6em 0 .2em;"></div>
+                <label class="jg-check"><input id="SrcManage" type="checkbox" /><span>Add it to Jellyfin's guide providers for me<br /><span class="fieldDescription">Creates (or updates) the XMLTV guide provider pointing here, for the tuners ticked above only.</span></span></label>
+                <label id="SrcOnlyTunerRow" class="jg-check"><input id="SrcOnlyTuner" type="checkbox" /><span>Leave out channels these tuners don't have<br /><span class="fieldDescription">A lineup lists hundreds of channels your tuners may not carry, and Jellyfin re-reads the whole guide for every channel it refreshes.</span></span></label>
             </div>
 
             <div id="SrcError" class="jg-err"></div>
@@ -347,8 +347,7 @@
                 q("#SrcSd").hidden = !isSd;
                 q("#SrcCleanOptions").hidden = !q("#SrcClean").checked;
                 q("#SrcAddress").textContent = ApiClient.getUrl("JellyDvrGuides/guide/" + (q("#SrcId").value || "…") + ".xml");
-                var manage = q("#SrcManage").checked || (isSd && q("#SrcOnlyTuner").checked);
-                Array.prototype.forEach.call(q("#SrcTuners").querySelectorAll("input"), function (c) { c.disabled = !manage; });
+                q("#SrcOnlyTunerRow").hidden = !isSd;
             }
 
             function openDialog(index) {
@@ -439,7 +438,7 @@
                 if (config.Sources.some(function (x, i) { return i !== editing && x.Id.toLowerCase() === s.Id; })) { return "Another source already uses that address name."; }
                 if (s.Type === "xmltv" && !/^https?:\/\//i.test(s.Url)) { return "Enter the guide's address (http://…)."; }
                 if (s.Type === "sd" && !s.Lineup) { return "Pick a lineup (sign in and Update now to list them)."; }
-                if (s.Type === "sd" && s.OnlyTunerChannels && !s.Tuners.length) { return "Tick the tuners whose channels the guide should have."; }
+                if (s.Type === "sd" && s.OnlyTunerChannels && !s.Tuners.length) { return "Tick the tuners this guide is for (or untick \"Leave out channels these tuners don't have\")."; }
                 if (s.ManageProvider && !s.Tuners.length) { return "Tick the tuners the guide is for (a guide for all tuners gives each tuner's channels the wrong guide)."; }
                 return null;
             }
