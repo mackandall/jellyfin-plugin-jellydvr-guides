@@ -24,6 +24,7 @@ public sealed partial class SdImages
     private readonly ILogger<SdImages> _logger;
     private readonly SemaphoreSlim _downloads = new(2, 2);
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _perKey = new();
+    private const string NoneMark = "asked with show id";
     private string? _lastError;
     private DateTime _lastErrorUtc;
 
@@ -61,8 +62,9 @@ public sealed partial class SdImages
             return path;
         }
 
-        // Known to have no picture: asked again after a month.
-        if (File.Exists(none) && File.GetLastWriteTimeUtc(none) > DateTime.UtcNow.AddDays(-30))
+        // Known to have no picture: asked again after a month. Markers without the current
+        // NoneMark predate asking with the show id, so they're asked again now.
+        if (File.Exists(none) && File.GetLastWriteTimeUtc(none) > DateTime.UtcNow.AddDays(-30) && File.ReadAllText(none) == NoneMark)
         {
             return null;
         }
@@ -79,8 +81,14 @@ public sealed partial class SdImages
 
             var cfg = Plugin.Instance?.Configuration ?? new PluginConfiguration();
             Directory.CreateDirectory(Folder);
-            var reply = await _client.PostAsync(cfg, "metadata/programs/", new JsonArray(programId), ct).ConfigureAwait(false);
-            var data = reply.AsArray().OfType<JsonObject>().FirstOrDefault()?["data"] as JsonArray;
+            // A show's pictures come with its 10-character id (an episode's own id often has
+            // none, news especially); movies and sports events have their own.
+            var data = key.StartsWith("SH", StringComparison.Ordinal) ? await PicturesAsync(cfg, key, ct).ConfigureAwait(false) : null;
+            if (data is null || data.Count == 0)
+            {
+                data = await PicturesAsync(cfg, programId, ct).ConfigureAwait(false);
+            }
+
             var best = data?.OfType<JsonObject>()
                 .Where(d => d["uri"] is not null)
                 .OrderByDescending(d => Score(d, key.StartsWith("MV", StringComparison.Ordinal)))
@@ -88,7 +96,7 @@ public sealed partial class SdImages
             var image = best is null ? null : await _client.GetImageAsync(cfg, best["uri"]!.ToString(), ct).ConfigureAwait(false);
             if (image is null)
             {
-                File.WriteAllText(none, string.Empty);
+                File.WriteAllText(none, NoneMark);
                 return null;
             }
 
@@ -115,6 +123,13 @@ public sealed partial class SdImages
             _downloads.Release();
             gate.Release();
         }
+    }
+
+    // The pictures Schedules Direct lists for one id (null when none: it answers with an error object).
+    private async Task<JsonArray?> PicturesAsync(PluginConfiguration cfg, string id, CancellationToken ct)
+    {
+        var reply = await _client.PostAsync(cfg, "metadata/programs/", new JsonArray(id), ct).ConfigureAwait(false);
+        return reply.AsArray().OfType<JsonObject>().FirstOrDefault()?["data"] as JsonArray;
     }
 
     // A movie: a poster (2x3). Anything else: the show's own picture, landscape (4x3, then
