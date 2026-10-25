@@ -316,7 +316,7 @@
                     });
                     var f = st.Fetch;
                     if (f && f.FetchedUtc) {
-                        var bits = [when(f.FetchedUtc), f.Programmes.toLocaleString() + " programmes"];
+                        var bits = [when(f.FetchedUtc), f.Programmes ? f.Programmes.toLocaleString() + " programmes" : "saved copy"];
                         if (f.TitlesCleaned) { bits.push(f.TitlesCleaned.toLocaleString() + " years removed"); }
                         if (f.ProgramIdsAdded) { bits.push(f.ProgramIdsAdded.toLocaleString() + " ids added"); }
                         row(isSd ? "Guide written" : "Last fetch", bits.join(" · "));

@@ -76,11 +76,29 @@ public sealed class GuideService
             ? Path.Combine(_directory, "guide-" + id.ToLowerInvariant() + ".xml")
             : throw new InvalidOperationException($"\"{id}\" isn't a usable address name (letters, digits and dashes).");
 
+    /// <summary>
+    /// The source's last fetch or write. Before the first one since the server started, the
+    /// saved copy's time stands in (Programmes 0: not counted), since a fresh copy is served
+    /// without being fetched again.
+    /// </summary>
     public RefreshStatus? StatusOf(string id)
     {
         lock (_statuses)
         {
-            return _statuses.GetValueOrDefault(id);
+            if (_statuses.TryGetValue(id, out var status))
+            {
+                return status;
+            }
+        }
+
+        try
+        {
+            var path = PathOf(id);
+            return File.Exists(path) ? new RefreshStatus(File.GetLastWriteTimeUtc(path), 0, 0, 0, Array.Empty<string>(), 0, null, null) : null;
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
         }
     }
 
