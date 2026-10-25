@@ -118,9 +118,7 @@ public sealed class SchedulesDirectController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> Image([FromRoute] string key, [FromQuery] string p, CancellationToken ct)
     {
-        var remote = HttpContext.Connection.RemoteIpAddress;
-        if (Plugin.Instance?.Configuration.LocalNetworkOnly != false
-            && (remote is null || !(System.Net.IPAddress.IsLoopback(remote) || _network.IsInLocalNetwork(remote))))
+        if (!HomeNetwork.Allows(HttpContext, _network))
         {
             return StatusCode(StatusCodes.Status403Forbidden);
         }

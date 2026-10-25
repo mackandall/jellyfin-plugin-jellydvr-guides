@@ -58,10 +58,7 @@ public sealed class GuideController : ControllerBase
 
     private async Task<IActionResult> Serve(GuideSource? source, string asked, CancellationToken cancellationToken)
     {
-        // Home network only (setting): the server itself and the networks Jellyfin counts as LAN.
-        var remote = HttpContext.Connection.RemoteIpAddress;
-        if (Plugin.Instance?.Configuration.LocalNetworkOnly != false
-            && (remote is null || !(System.Net.IPAddress.IsLoopback(remote) || _network.IsInLocalNetwork(remote))))
+        if (!HomeNetwork.Allows(HttpContext, _network))
         {
             return StatusCode(StatusCodes.Status403Forbidden, "The guides are only served on the home network (JellyDVR Guides settings).");
         }
