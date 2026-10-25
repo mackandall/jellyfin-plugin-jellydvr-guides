@@ -1,51 +1,58 @@
-# XMLTV Guide Cleaner (Jellyfin plugin)
+# JellyDVR Guides (Jellyfin plugin)
 
-Some XMLTV sources — Channels DVR's guide feed in particular — bake a movie's release year
-into its title (`<title>The Wizard of Oz (1939)</title>`) while also providing the year
-separately (`<date>19390825</date>`). Jellyfin reads `<date>` as the production year and
-appends it again when naming recordings, giving `The Wizard of Oz (1939) (1939)` for both
-the recording title and its folder.
-
-This plugin sits between the upstream guide and Jellyfin. It serves a cleaned copy at
-`/XmltvCleaner/guide.xml`, with a trailing `(YYYY)` removed from a programme's title
-**only when YYYY matches that programme's `<date>` year**. Everything else passes
-through unchanged. On a 14-day Channels DVR guide (~30k programmes, 28 MB) that is
-~2,200 movie titles, cleaned in under a second.
-
-It also copies each programme's Gracenote/TMS id from `<episode-num system="tms">`, which
-Jellyfin ignores, into `<episode-num system="dd_progid">`, which it reads. Jellyfin then
-has a real, cross-channel episode id (its ShowId) instead of a fallback hashed from the
-episode number alone. That fallback makes S1E5 and S3E5 of a show look like the same
-episode, so "skip episodes already in library" cancels one of them. The Episode History
-plugin uses the same id to match guide entries to what was recorded and watched.
+Guide sources for Jellyfin's Live TV. Each source is an XMLTV guide or a Schedules Direct
+lineup, served by this plugin as one guide at its own address on your server, for one
+Jellyfin guide provider limited to the tuners it's for. Formerly *XMLTV Guide Cleaner*:
+existing setups carry over (see [Upgrading from XMLTV Guide Cleaner](#upgrading-from-xmltv-guide-cleaner)).
 
 Target: Jellyfin 12.0.x (.NET 10).
 
+## Why
+
+**Schedules Direct without the lockouts.** Jellyfin's own Schedules Direct provider asks
+Schedules Direct for everything on every guide refresh, and Schedules Direct warns that it
+gets accounts and IP addresses banned. This plugin downloads only what changed, once a day
+(Scheduled Tasks → *Update Schedules Direct guide*, 5:00), and only for the lineups your
+sources use. Jellyfin's guide refreshes read the local copy and never reach Schedules
+Direct. Programme pictures are fetched the first time a client shows them, then kept, and
+downloads stop for the day when Schedules Direct's daily picture limit is reached.
+
+**XMLTV guides Jellyfin misreads, cleaned.** Some XMLTV sources (Channels DVR's in
+particular) need fixing before Jellyfin reads them right. Each fix is a per-source option:
+
+- *Remove a year already in a movie title*: `<title>The Wizard of Oz (1939)</title>` with
+  `<date>19390825</date>` makes Jellyfin name the recording "The Wizard of Oz (1939) (1939)".
+  The trailing year is removed only when it matches the programme's own date.
+- *Give Jellyfin the Gracenote episode ids*: the id in `<episode-num system="tms">`, which
+  Jellyfin ignores, is copied to `<episode-num system="dd_progid">`, which it reads. Without
+  it Jellyfin falls back to an id hashed from the episode number alone, so S1E5 and S3E5 of
+  a show look like the same episode and "skip episodes already in library" cancels one.
+
+**One guide per tuner.** Jellyfin uses only the first guide provider that covers a tuner,
+and a provider left on "all tuners" gives every tuner's channels the wrong guide. The plugin
+can create and keep each source's Jellyfin guide provider for you, limited to the tuners you
+tick, and points out (and offers to remove) any other provider covering the same tuners.
+
 ## How it works
 
-- Jellyfin's XMLTV provider fetches `/XmltvCleaner/guide.xml` like any other XMLTV URL.
-  The plugin fetches the configured upstream URL, cleans it, and returns it.
-- The last good cleaned copy is kept at `<jellyfin data>/xmltv-cleaner/guide.xml`. If
-  the upstream is down, times out, or returns an empty guide, that copy is served
-  instead. This matters because Jellyfin doesn't check the HTTP status of an XMLTV
-  download, so an error page would otherwise be cached as the guide.
-- Requests within *Minimum minutes between upstream fetches* (default 10) reuse the
-  cached copy. The guide endpoint is anonymous, because Jellyfin's downloader sends no
-  credentials. The upstream URL comes only from plugin settings, so the endpoint can't
-  be used to proxy anything else.
-- Programme IDs are unaffected (Jellyfin builds them from channel + start time), so
-  existing scheduled recordings keep working.
-
-## Screenshots
-
-From a real server (Jellyfin 12.2). Dashboard → Plugins → XMLTV Guide Cleaner (the upstream URL above these is
-left out):
-
-![Settings](docs/screenshots/settings.jpg)
-
-The last fetch: how many titles were cleaned, with examples:
-
-![Last fetch](docs/screenshots/status.jpg)
+- A source is served at `http://<server>:8096/JellyDvrGuides/guide/<address name>.xml`.
+  Jellyfin's XMLTV guide provider fetches it like any other XMLTV address.
+- **XMLTV source:** fetched at most every *XMLTV: minimum minutes between fetches*
+  (default 10), cleaned if asked, and kept on disk.
+- **Schedules Direct source:** written from the local copy in the shape Jellyfin reads
+  (channel ids are channel numbers, so channels map to the tuner's by number; categories say
+  Movie / Series / Sports; the Gracenote id is in `dd_progid`). By default it holds only the
+  channel numbers its tuners carry: a lineup lists hundreds of channels your tuner may not,
+  and Jellyfin re-reads the whole guide for every channel it refreshes.
+- The last good copy of each guide is kept under `<jellyfin data>/xmltv-cleaner/`. If a
+  source is down, times out or returns an empty guide, that copy is served instead. This
+  matters because Jellyfin doesn't check the HTTP status of an XMLTV download, so an error
+  page would otherwise become the guide. A copy is remade when its source's settings change.
+- The guide and picture addresses need no sign-in, because Jellyfin's downloader sends
+  none. By default they only answer this server and the home network. Source addresses come
+  only from the plugin settings, so they can't be used to fetch anything else.
+- The Schedules Direct password is never stored: the settings page sends it once, and only
+  its hash (the form Schedules Direct's API takes) is kept.
 
 ## Install
 
@@ -55,7 +62,7 @@ The last fetch: how many titles were cleaned, with examples:
    ```
    https://raw.githubusercontent.com/mackandall/jdvr-client/main/plugins/manifest.json
    ```
-2. Dashboard → Plugins → **Catalog** → **XMLTV Guide Cleaner** → Install, then restart Jellyfin.
+2. Dashboard → Plugins → **Catalog** → **JellyDVR Guides** → Install, then restart Jellyfin.
 
 ### Or build from source
 
@@ -66,14 +73,25 @@ sudo ./install.sh   # copies DLL + meta.json + icon.png into the plugin dir, res
 
 ## Setup
 
-1. Dashboard → Plugins → XMLTV Guide Cleaner: paste the current upstream XMLTV URL,
-   Save, then click **Fetch and clean now** to confirm it works.
-2. Dashboard → Live TV → edit the XMLTV guide provider: replace its URL with the one
-   shown on the plugin page, e.g. `http://localhost:8096/XmltvCleaner/guide.xml`.
-3. Run Scheduled Tasks → **Refresh Guide**.
+1. For Schedules Direct: Dashboard → Plugins → **JellyDVR Guides** → *Schedules Direct
+   account*: sign in, then **Update now** to list your lineups. Add or change lineups on the
+   Schedules Direct website.
+2. **+ Add guide source**: pick the type (XMLTV address or Schedules Direct lineup), give it
+   a name and address name, tick the tuners it's for, and leave *Add it to Jellyfin's guide
+   providers for me* ticked. Save.
+3. The plugin adds the guide provider and runs Jellyfin's **Refresh Guide**. Jellyfin keeps
+   its own copy of each XMLTV download for up to an hour, so a guide that changed source may
+   take that long to show.
+4. Once a Schedules Direct source is working, remove Jellyfin's own Schedules Direct guide
+   provider (Dashboard → Live TV), or it keeps asking Schedules Direct on every refresh.
 
-Recordings made before the switch keep their duplicated names. Only future recordings
-are affected.
+## Upgrading from XMLTV Guide Cleaner
+
+The settings become sources at start-up: the guide URL becomes the source *Main guide*
+(address name `main`), and any "More guides" become sources 2, 3…. The old addresses
+(`/XmltvCleaner/guide.xml`, `guide2.xml`…) still answer with the same guides, so existing
+Jellyfin guide providers keep working untouched. Recordings made before the year fix keep
+their duplicated names; only future recordings are affected.
 
 ## License
 
