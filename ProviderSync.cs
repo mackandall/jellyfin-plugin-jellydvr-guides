@@ -35,7 +35,10 @@ public sealed class ProviderSync
 
     public sealed record Tuner(string Id, string Name, string Type);
 
-    public sealed record ProviderState(string SourceId, bool InJellyfin, string[] Tuners, bool AllTuners, string? ProviderId);
+    public sealed record ProviderState(string SourceId, bool InJellyfin, string[] Tuners, bool AllTuners, string? ProviderId, IReadOnlyList<OtherProvider> Others);
+
+    /// <summary>Another guide provider covering some of the same tuners (Jellyfin uses only the first one it finds).</summary>
+    public sealed record OtherProvider(string Id, string Type, string Where, string[] Tuners, bool AllTuners, bool ComesFirst);
 
     public IReadOnlyList<Tuner> Tuners() =>
         LiveTv().TunerHosts
@@ -81,8 +84,44 @@ public sealed class ProviderSync
         return cfg.Sources.Select((s, i) =>
         {
             var p = Match(providers, s, i, serverBase);
-            return new ProviderState(s.Id, p is not null, p?.EnabledTuners ?? Array.Empty<string>(), p?.EnableAllTuners ?? false, p?.Id);
+            return new ProviderState(s.Id, p is not null, p?.EnabledTuners ?? Array.Empty<string>(), p?.EnableAllTuners ?? false, p?.Id, Others(providers, p, s));
         }).ToList();
+    }
+
+    // The other providers that also give a guide to this source's tuners.
+    private static List<OtherProvider> Others(ListingsProviderInfo[] providers, ListingsProviderInfo? mine, GuideSource source)
+    {
+        var tuners = mine is not null ? mine.EnabledTuners : source.Tuners;
+        var all = mine?.EnableAllTuners ?? false;
+        var myIndex = mine is null ? int.MaxValue : Array.IndexOf(providers, mine);
+        return providers
+            .Select((o, i) => (o, i))
+            .Where(x => x.o != mine && (all ? true : x.o.EnableAllTuners ? tuners.Length > 0 : x.o.EnabledTuners.Intersect(tuners).Any()))
+            .Select(x => new OtherProvider(
+                x.o.Id,
+                x.o.Type,
+                x.o.Type == "xmltv" ? x.o.Path ?? string.Empty : "Schedules Direct " + x.o.ListingsId,
+                x.o.EnableAllTuners ? Array.Empty<string>() : x.o.EnabledTuners.Intersect(all ? x.o.EnabledTuners : tuners).ToArray(),
+                x.o.EnableAllTuners,
+                x.i < myIndex))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Removes another guide provider that covers a source's tuners (the source card's Remove
+    /// button). Only one listed as covering a source's tuners can be removed this way.
+    /// </summary>
+    public bool RemoveOther(PluginConfiguration cfg, string serverBase, string providerId)
+    {
+        if (!States(cfg, serverBase).Any(s => s.Others.Any(o => o.Id == providerId)))
+        {
+            return false;
+        }
+
+        _listings.DeleteListingsProvider(providerId);
+        _logger.LogInformation("Removed guide provider {Id} that covered a guide source's tuners", providerId);
+        QueueGuideRefresh();
+        return true;
     }
 
     /// <summary>

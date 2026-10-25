@@ -143,6 +143,22 @@ public sealed class GuideController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// The source card's Remove: deletes another Jellyfin guide provider covering a source's
+    /// tuners, then queues Refresh Guide.
+    /// </summary>
+    [HttpPost("Providers/{providerId}/Remove")]
+    [Authorize(Policy = Policies.RequiresElevation)]
+    public ActionResult<SourceStatus[]> RemoveProvider([FromRoute] string providerId)
+    {
+        if (!_providers.RemoveOther(Config(), Base(), providerId))
+        {
+            return NotFound("That guide provider doesn't cover any guide source's tuners.");
+        }
+
+        return Ok(Statuses());
+    }
+
     private SourceStatus[] Statuses()
     {
         var cfg = Config();

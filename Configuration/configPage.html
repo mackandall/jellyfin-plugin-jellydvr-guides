@@ -285,6 +285,35 @@
                     var p = st.Provider;
                     row("In Jellyfin", !p || !p.InJellyfin ? "Not added yet" + (s.ManageProvider ? "" : " (Edit to let the plugin add it)")
                         : "Guide provider for " + (p.AllTuners ? "all tuners (limit it to its own tuners)" : p.Tuners.length ? p.Tuners.map(tunerName).join(", ") : "no tuners"));
+                    ((p && p.Others) || []).forEach(function (o) {
+                        rows.appendChild(el("span", null, "Also for these tuners"));
+                        var cell = el("span", o.ComesFirst ? "jg-err" : null,
+                            (o.Type === "xmltv" ? "Guide provider " + o.Where : o.Where) + " (" +
+                            (o.AllTuners ? "all tuners" : o.Tuners.map(tunerName).join(", ")) + ")" +
+                            (o.ComesFirst ? ": Jellyfin uses it instead of this guide. " : ". "));
+                        var remove = el("button", "raised emby-button", "Remove it");
+                        remove.type = "button";
+                        remove.style.margin = ".3em 0 0";
+                        remove.style.display = "block";
+                        remove.addEventListener("click", function () {
+                            if (remove.dataset.armed !== "1") {
+                                remove.dataset.armed = "1";
+                                remove.textContent = "Remove it from Jellyfin?";
+                                return;
+                            }
+                            remove.disabled = true;
+                            api("POST", "Providers/" + encodeURIComponent(o.Id) + "/Remove").then(function (all) {
+                                statuses = all || [];
+                                q("#ApplyResult").textContent = "Removed the guide provider " + o.Where + ".\nJellyfin's Refresh Guide is running.";
+                                renderSources();
+                            }).catch(function (e) {
+                                errorText(e).then(function (t) { q("#ApplyResult").textContent = "Couldn't remove it. " + t; });
+                                renderSources();
+                            });
+                        });
+                        cell.appendChild(remove);
+                        rows.appendChild(cell);
+                    });
                     var f = st.Fetch;
                     if (f && f.FetchedUtc) {
                         var bits = [when(f.FetchedUtc), f.Programmes.toLocaleString() + " programmes"];
