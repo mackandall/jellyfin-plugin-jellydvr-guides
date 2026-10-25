@@ -7,8 +7,8 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.XmltvCleaner.Configuration;
-using Jellyfin.Plugin.XmltvCleaner.SchedulesDirect;
 using Jellyfin.Plugin.XmltvCleaner.Providers;
+using Jellyfin.Plugin.XmltvCleaner.SchedulesDirect;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.XmltvCleaner.Guides;
@@ -151,8 +151,8 @@ public sealed class GuideService
             }
             catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
             {
-                SetStatus(source.Id, (StatusOf(source.Id) ?? new RefreshStatus(null, 0, 0, 0, Array.Empty<string>(), 0, null, null))
-                    with { LastError = ex.Message, LastErrorUtc = DateTime.UtcNow });
+                var previous = StatusOf(source.Id) ?? new RefreshStatus(null, 0, 0, 0, Array.Empty<string>(), 0, null, null);
+                SetStatus(source.Id, previous with { LastError = ex.Message, LastErrorUtc = DateTime.UtcNow });
 
                 if (File.Exists(guidePath))
                 {
