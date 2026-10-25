@@ -78,15 +78,18 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         SaveConfiguration();
     }
 
+    /// <summary>The settings page and its script (the page's data-controller names the script).</summary>
     public IEnumerable<PluginPageInfo> GetPages()
     {
         yield return new PluginPageInfo
         {
             Name = Name,
-            EmbeddedResourcePath = string.Format(
-                CultureInfo.InvariantCulture,
-                "{0}.Configuration.configPage.html",
-                GetType().Namespace)
+            EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Configuration.configPage.html", GetType().Namespace)
+        };
+        yield return new PluginPageInfo
+        {
+            Name = "JellyDvrGuidesJs",
+            EmbeddedResourcePath = string.Format(CultureInfo.InvariantCulture, "{0}.Configuration.configPage.js", GetType().Namespace)
         };
     }
 }
