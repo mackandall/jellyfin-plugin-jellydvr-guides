@@ -15,7 +15,9 @@ gets accounts and IP addresses banned. This plugin downloads only what changed, 
 (Scheduled Tasks → *Update Schedules Direct guide*, 5:00), and only for the lineups your
 sources use. Jellyfin's guide refreshes read the local copy and never reach Schedules
 Direct. Programme pictures are fetched the first time a client shows them, then kept, and
-downloads stop for the day when Schedules Direct's daily picture limit is reached.
+downloads stop for the day when Schedules Direct's daily picture limit is reached. A kept
+picture older than 14 days (a setting) is re-checked the next time it's shown and downloaded
+again only if Schedules Direct has new art.
 
 **XMLTV guides Jellyfin misreads, cleaned.** Some XMLTV sources (Channels DVR's in
 particular) need fixing before Jellyfin reads them right. Each fix is a per-source option:

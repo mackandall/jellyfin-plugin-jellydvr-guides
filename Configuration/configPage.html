@@ -63,7 +63,7 @@
                         Shared by every Schedules Direct source. The plugin downloads only what changed, once a day
                         (Scheduled Tasks &rarr; "Update Schedules Direct guide", 5:00), and only for the lineups the sources
                         use, so Jellyfin's guide refreshes never reach Schedules Direct. Pictures are fetched the first time
-                        they're shown, then kept. Remove Jellyfin's own Schedules Direct guide provider once you use this,
+                        they're shown, then kept (re-checked now and then: General, below). Remove Jellyfin's own Schedules Direct guide provider once you use this,
                         or it keeps asking them on every refresh.
                     </div>
                     <div id="SdAccountResult" class="fieldDescription" style="margin-bottom:.6em;"></div>
@@ -99,6 +99,10 @@
                         <div class="inputContainer">
                             <input id="UpstreamTimeoutSeconds" type="number" min="5" is="emby-input" label="XMLTV: timeout (seconds)" />
                             <div class="fieldDescription">On a failure or timeout the last good copy is served.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <input id="RecheckPictureDays" type="number" min="0" is="emby-input" label="Schedules Direct: re-check pictures after (days)" />
+                            <div class="fieldDescription">A kept picture this old is asked about again the next time it's shown, and downloaded again only if Schedules Direct has a new one. 0 = never.</div>
                         </div>
                     </div>
                 </div>

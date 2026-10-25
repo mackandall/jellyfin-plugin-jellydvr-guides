@@ -393,6 +393,7 @@ export default function (view) {
             q("#LocalNetworkOnly").checked = config.LocalNetworkOnly !== false;
             q("#MinRefetchMinutes").value = config.MinRefetchMinutes != null ? config.MinRefetchMinutes : 10;
             q("#UpstreamTimeoutSeconds").value = config.UpstreamTimeoutSeconds || 120;
+            q("#RecheckPictureDays").value = config.RecheckPictureDays != null ? config.RecheckPictureDays : 14;
             q("#SdUsername").value = config.SdUsername || "";
             showSd(r[3]);
             renderSources();
@@ -411,6 +412,8 @@ export default function (view) {
             fresh.LocalNetworkOnly = q("#LocalNetworkOnly").checked;
             fresh.MinRefetchMinutes = parseInt(q("#MinRefetchMinutes").value, 10) || 0;
             fresh.UpstreamTimeoutSeconds = parseInt(q("#UpstreamTimeoutSeconds").value, 10) || 120;
+            var days = parseInt(q("#RecheckPictureDays").value, 10);
+            fresh.RecheckPictureDays = isNaN(days) || days < 0 ? 14 : days;
             return ApiClient.updatePluginConfiguration(pluginUniqueId, fresh);
         }).then(function (result) {
             Dashboard.processPluginConfigurationUpdateResult(result);

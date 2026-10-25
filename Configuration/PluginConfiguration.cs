@@ -81,6 +81,12 @@ public class PluginConfiguration : BasePluginConfiguration
     /// </summary>
     public bool LocalNetworkOnly { get; set; } = true;
 
+    /// <summary>
+    /// Schedules Direct: days before a kept programme picture is asked about again (the next time
+    /// it's shown; downloaded again only if Schedules Direct lists a different one). 0 = never.
+    /// </summary>
+    public int RecheckPictureDays { get; set; } = 14;
+
     /// <summary>The Schedules Direct account every Schedules Direct source uses.</summary>
     public string SdUsername { get; set; } = string.Empty;
 
