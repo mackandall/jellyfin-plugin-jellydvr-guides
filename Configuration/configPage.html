@@ -2,169 +2,479 @@
 <html lang="en">
 <head>
     <meta charset="utf-8" />
-    <title>XMLTV Guide Cleaner</title>
+    <title>JellyDVR Guides</title>
 </head>
 <body>
-<div id="XmltvCleanerConfigPage"
+<div id="JellyDvrGuidesConfigPage"
      data-role="page"
      class="page type-interior pluginConfigurationPage"
-     data-require="emby-input,emby-button,emby-checkbox">
+     data-require="emby-input,emby-button,emby-checkbox,emby-select">
+    <style>
+        #JellyDvrGuidesConfigPage .jg-card { background: rgba(255,255,255,.05); border-radius: 8px; padding: 1em 1.2em; margin-bottom: 1em; }
+        #JellyDvrGuidesConfigPage .jg-head { display: flex; justify-content: space-between; gap: 1em; flex-wrap: wrap; align-items: flex-start; }
+        #JellyDvrGuidesConfigPage .jg-title { display: flex; gap: .6em; align-items: center; flex-wrap: wrap; }
+        #JellyDvrGuidesConfigPage .jg-title h3 { margin: 0; }
+        #JellyDvrGuidesConfigPage .jg-tag { font-size: .7em; font-weight: 600; letter-spacing: .05em; padding: .2em .55em; border-radius: 3px; background: rgba(255,255,255,.12); }
+        #JellyDvrGuidesConfigPage .jg-tag.jg-clean { background: rgba(0,164,220,.25); }
+        #JellyDvrGuidesConfigPage .jg-sub { opacity: .75; font-size: .9em; margin-top: .3em; word-break: break-all; }
+        #JellyDvrGuidesConfigPage .jg-rows { margin-top: .8em; border-top: 1px solid rgba(255,255,255,.08); padding-top: .6em; display: grid; grid-template-columns: max-content 1fr; gap: .35em 1.2em; font-size: .92em; }
+        #JellyDvrGuidesConfigPage .jg-rows > span:nth-child(odd) { opacity: .65; }
+        #JellyDvrGuidesConfigPage .jg-rows > span:nth-child(even) { word-break: break-all; }
+        #JellyDvrGuidesConfigPage .jg-actions { display: flex; gap: .5em; }
+        #JellyDvrGuidesConfigPage .jg-actions button { margin: 0; }
+        #JellyDvrGuidesConfigPage .jg-err { color: #ff8a80; }
+        #JellyDvrGuidesConfigPage .jg-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 1100; display: flex; align-items: flex-start; justify-content: center; overflow-y: auto; padding: 3em 1em; }
+        #JellyDvrGuidesConfigPage .jg-dialog { background: #202020; border-radius: 10px; padding: 1.4em 1.6em; width: 100%; max-width: 44em; box-shadow: 0 12px 40px rgba(0,0,0,.6); }
+        #JellyDvrGuidesConfigPage .jg-dialog h2 { margin-top: 0; }
+        #JellyDvrGuidesConfigPage .jg-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(14em, 1fr)); gap: 0 1.2em; }
+        #JellyDvrGuidesConfigPage .jg-box { background: rgba(255,255,255,.05); border-radius: 8px; padding: .8em 1em; margin-bottom: 1.2em; }
+        #JellyDvrGuidesConfigPage .jg-check { display: flex; gap: .7em; align-items: flex-start; cursor: pointer; margin: .4em 0; }
+        #JellyDvrGuidesConfigPage .jg-check input { width: 1.2em; height: 1.2em; margin: .15em 0 0; accent-color: #00a4dc; flex: none; }
+        #JellyDvrGuidesConfigPage .jg-indent { padding-left: 1.9em; }
+        #JellyDvrGuidesConfigPage .jg-tuners { display: flex; flex-wrap: wrap; gap: .2em 1.6em; }
+        #JellyDvrGuidesConfigPage .jg-buttons { display: flex; justify-content: space-between; gap: .6em; margin-top: 1.2em; flex-wrap: wrap; }
+        #JellyDvrGuidesConfigPage .jg-buttons > div { display: flex; gap: .6em; }
+        #JellyDvrGuidesConfigPage .jg-buttons button { margin: 0; }
+        #JellyDvrGuidesConfigPage code { word-break: break-all; }
+    </style>
     <div data-role="content">
         <div class="content-primary">
-            <form id="XmltvCleanerConfigForm">
+            <form id="JellyDvrGuidesConfigForm">
 
                 <div class="verticalSection">
-                    <h2>Upstream guide</h2>
-
-                    <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="UpstreamUrl">Upstream XMLTV URL</label>
-                        <input id="UpstreamUrl" name="UpstreamUrl" type="text" is="emby-input" />
-                        <div class="fieldDescription">The URL Jellyfin's XMLTV guide provider used before, e.g. http://&lt;channels-dvr&gt;:8089/devices/&lt;source&gt;/guide/xmltv?duration=1209600</div>
+                    <h2>Guide sources</h2>
+                    <div class="fieldDescription" style="margin-bottom:1em;">
+                        Each source becomes one guide at its own address on this server, for one Jellyfin guide provider
+                        limited to the tuners it's for. Jellyfin never contacts the sources itself: an XMLTV source is
+                        fetched at most every few minutes (General, below), Schedules Direct once a day.
                     </div>
+                    <div id="Sources"></div>
+                    <button id="AddSource" type="button" is="emby-button" class="raised"><span>+ Add guide source</span></button>
+                    <div id="ApplyResult" class="fieldDescription" style="margin-top:.6em;white-space:pre-line;"></div>
+                </div>
 
-                    <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="ExtraUpstreamUrls">More guides (one URL per line)</label>
-                        <textarea id="ExtraUpstreamUrls" rows="3" class="emby-textarea" style="width:100%;box-sizing:border-box;"></textarea>
-                        <div class="fieldDescription">Each is cleaned the same way and served at its own address (below), so each Jellyfin guide provider can be limited to its own tuner, e.g. a Channels DVR HDHomeRun's /devices/&lt;id&gt;/guide/xmltv?duration=1209600.</div>
+                <div class="verticalSection">
+                    <h2>Schedules Direct account</h2>
+                    <div class="fieldDescription" style="margin-bottom:.8em;">
+                        Shared by every Schedules Direct source. The plugin downloads only what changed, once a day
+                        (Scheduled Tasks &rarr; "Update Schedules Direct guide", 5:00), and only for the lineups the sources
+                        use, so Jellyfin's guide refreshes never reach Schedules Direct. Pictures are fetched the first time
+                        they're shown, then kept. Remove Jellyfin's own Schedules Direct guide provider once you use this,
+                        or it keeps asking them on every refresh.
                     </div>
-
-                    <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="MinRefetchMinutes">Minimum minutes between upstream fetches</label>
-                        <input id="MinRefetchMinutes" name="MinRefetchMinutes" type="number" min="0" is="emby-input" />
-                        <div class="fieldDescription">Requests newer than this reuse the last cleaned copy.</div>
+                    <div id="SdAccountResult" class="fieldDescription" style="margin-bottom:.6em;"></div>
+                    <div class="jg-grid">
+                        <div class="inputContainer">
+                            <input id="SdUsername" type="text" is="emby-input" label="Account name" autocomplete="off" />
+                        </div>
+                        <div class="inputContainer">
+                            <input id="SdPassword" type="password" is="emby-input" label="Password (only its hash is kept)" autocomplete="new-password" />
+                        </div>
                     </div>
-
-                    <div class="inputContainer">
-                        <label class="inputLabel inputLabelUnfocused" for="UpstreamTimeoutSeconds">Upstream timeout (seconds)</label>
-                        <input id="UpstreamTimeoutSeconds" name="UpstreamTimeoutSeconds" type="number" min="5" is="emby-input" />
-                        <div class="fieldDescription">If the upstream fails or times out, the last good cleaned copy is served instead.</div>
+                    <div class="jg-actions">
+                        <button id="SdSignIn" type="button" is="emby-button" class="raised"><span>Sign in</span></button>
+                        <button id="SdUpdate" type="button" is="emby-button" class="raised"><span>Update now</span></button>
                     </div>
+                    <div id="SdStatus" class="fieldDescription" style="margin-top:.6em;white-space:pre-line;"></div>
+                </div>
 
+                <div class="verticalSection">
+                    <h2>General</h2>
                     <div class="checkboxContainer checkboxContainer-withDescription">
                         <label class="emby-checkbox-label">
-                            <input id="LocalNetworkOnly" name="LocalNetworkOnly" type="checkbox" is="emby-checkbox" />
-                            <span>Only serve the cleaned guide on the home network</span>
+                            <input id="LocalNetworkOnly" type="checkbox" is="emby-checkbox" />
+                            <span>Only serve guides and pictures on the home network</span>
                         </label>
-                        <div class="fieldDescription checkboxFieldDescription">The guide address needs no sign-in (Jellyfin downloads it without one). On: only the server itself and the networks Jellyfin counts as local (Dashboard &rarr; Networking) can read it.</div>
+                        <div class="fieldDescription checkboxFieldDescription">The guide addresses need no sign-in (Jellyfin downloads them without one). On: only this server and the networks Jellyfin counts as local (Dashboard &rarr; Networking) can read them.</div>
                     </div>
-                </div>
-
-                <div class="verticalSection">
-                    <h2>Schedules Direct</h2>
-                    <div class="fieldDescription" style="margin-bottom:.8em;">
-                        A guide whose URL is <code>sd:&lt;lineup&gt;</code> (main or "More guides") comes from your Schedules Direct
-                        account. The plugin downloads what changed once a day (Scheduled Tasks &rarr; "Update Schedules Direct
-                        guide", 5:00) and keeps a copy here, so Jellyfin's guide refreshes never reach Schedules Direct. Pictures
-                        are fetched the first time they're shown, then kept. Remove Jellyfin's own Schedules Direct guide provider
-                        once you use this, or it keeps asking them on every refresh.
+                    <div class="jg-grid">
+                        <div class="inputContainer">
+                            <input id="MinRefetchMinutes" type="number" min="0" is="emby-input" label="XMLTV: minimum minutes between fetches" />
+                            <div class="fieldDescription">Requests newer than this reuse the last copy.</div>
+                        </div>
+                        <div class="inputContainer">
+                            <input id="UpstreamTimeoutSeconds" type="number" min="5" is="emby-input" label="XMLTV: timeout (seconds)" />
+                            <div class="fieldDescription">On a failure or timeout the last good copy is served.</div>
+                        </div>
                     </div>
-
-                    <div class="inputContainer">
-                        <input id="SdUsername" type="text" is="emby-input" label="Account name" autocomplete="off" />
-                    </div>
-                    <div class="inputContainer">
-                        <input id="SdPassword" type="password" is="emby-input" label="Password" autocomplete="new-password" />
-                        <div class="fieldDescription">Checked by signing in once; only its hash (Schedules Direct's own form) is kept.</div>
-                    </div>
-                    <button id="SdSignIn" type="button" is="emby-button" class="raised block"><span>Sign in to Schedules Direct</span></button>
-                    <div id="SdAccountResult" class="fieldDescription" style="margin-top:.5em;"></div>
-
-                    <div class="inputContainer" style="margin-top:1.2em;">
-                        <input id="SdDays" type="number" min="1" max="21" is="emby-input" label="Days of guide" />
-                        <div class="fieldDescription">From today (Save to keep). 14 is plenty for recordings.</div>
-                    </div>
-
-                    <h3>Your lineups</h3>
-                    <div id="SdLineups" class="fieldDescription" style="white-space:pre-line;">Update once to list them.</div>
-
-                    <button id="SdUpdate" type="button" is="emby-button" class="raised block" style="margin-top:1em;"><span>Update from Schedules Direct now</span></button>
-                    <div id="SdStatus" class="fieldDescription" style="margin-top:.5em;white-space:pre-line;"></div>
-                </div>
-
-                <div class="verticalSection">
-                    <h2>Point Jellyfin at the cleaned guide</h2>
-                    <div class="fieldDescription">
-                        In Dashboard &rarr; Live TV, edit the XMLTV guide provider and set its file or URL to the cleaned
-                        address of its guide (one guide provider for each):
-                    </div>
-                    <pre id="CleanedUrl" style="user-select:all;white-space:pre-wrap;word-break:break-all;"></pre>
-                    <div class="fieldDescription">
-                        Then run Dashboard &rarr; Scheduled Tasks &rarr; "Refresh Guide". Jellyfin keeps its own copy
-                        of an XMLTV download for up to an hour.
-                    </div>
-
-                    <button id="RefreshBtn" type="button" is="emby-button" class="raised block">
-                        <span>Fetch and clean now</span>
-                    </button>
-                    <div id="RefreshResult" class="fieldDescription" style="margin-top:0.5em;white-space:pre-line;"></div>
                 </div>
 
                 <div>
-                    <button type="submit" is="emby-button" class="raised button-submit block">
-                        <span>Save</span>
-                    </button>
+                    <button type="submit" is="emby-button" class="raised button-submit block"><span>Save</span></button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <div id="SourceDialog" class="jg-overlay" hidden>
+        <div class="jg-dialog" role="dialog" aria-labelledby="SourceDialogTitle">
+            <h2 id="SourceDialogTitle">Add guide source</h2>
+            <div class="jg-grid">
+                <div class="inputContainer">
+                    <label class="inputLabel" for="SrcName">Name</label>
+                    <input id="SrcName" type="text" class="emby-input" />
+                </div>
+                <div class="selectContainer">
+                    <label class="selectLabel" for="SrcType">Type</label>
+                    <select id="SrcType" class="emby-select emby-select-withcolor">
+                        <option value="xmltv">XMLTV address</option>
+                        <option value="sd">Schedules Direct lineup</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="SrcXmltv">
+                <div class="inputContainer">
+                    <label class="inputLabel" for="SrcUrl">XMLTV address</label>
+                    <input id="SrcUrl" type="text" class="emby-input" />
+                    <div class="fieldDescription">Channels DVR, FastChannels, BroadcastHub or any other XMLTV guide.</div>
+                </div>
+                <div class="jg-box">
+                    <label class="jg-check"><input id="SrcClean" type="checkbox" /><span><b>Clean this guide</b><br /><span class="fieldDescription">For guides Jellyfin misreads. Channels DVR's needs it.</span></span></label>
+                    <div id="SrcCleanOptions" class="jg-indent">
+                        <label class="jg-check"><input id="SrcCleanYears" type="checkbox" /><span>Remove a year already in a movie title <span class="fieldDescription">(no more "Movie (2001) (2001)")</span></span></label>
+                        <label class="jg-check"><input id="SrcCleanIds" type="checkbox" /><span>Give Jellyfin the Gracenote episode ids <span class="fieldDescription">(stops episodes being skipped as duplicates)</span></span></label>
+                    </div>
+                </div>
+            </div>
+
+            <div id="SrcSd">
+                <div class="jg-grid">
+                    <div class="selectContainer">
+                        <label class="selectLabel" for="SrcLineup">Lineup</label>
+                        <select id="SrcLineup" class="emby-select emby-select-withcolor"></select>
+                        <div class="fieldDescription">The lineups on your account (Update now lists them). Add more on the Schedules Direct website (up to 4).</div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel" for="SrcDays">Days of guide</label>
+                        <input id="SrcDays" type="number" min="1" max="21" class="emby-input" />
+                    </div>
+                </div>
+                <div class="jg-box fieldDescription">Uses the Schedules Direct account below the sources. No cleaning step: the plugin writes this guide itself, with the ids and categories Jellyfin needs.</div>
+            </div>
+
+            <div class="inputContainer">
+                <label class="inputLabel" for="SrcId">Address name</label>
+                <input id="SrcId" type="text" class="emby-input" />
+                <div class="fieldDescription">Served at <code id="SrcAddress"></code></div>
+            </div>
+
+            <div class="jg-box">
+                <label class="jg-check"><input id="SrcManage" type="checkbox" /><span>Add it to Jellyfin's guide providers for me<br /><span class="fieldDescription">Creates (or updates) the XMLTV guide provider pointing here, for these tuners only:</span></span></label>
+                <div id="SrcTuners" class="jg-tuners jg-indent"></div>
+            </div>
+
+            <div id="SrcError" class="jg-err"></div>
+            <div class="jg-buttons">
+                <div><button id="SrcDelete" type="button" is="emby-button" class="raised"><span>Delete source</span></button></div>
+                <div>
+                    <button id="SrcCancel" type="button" is="emby-button" class="raised"><span>Cancel</span></button>
+                    <button id="SrcSave" type="button" is="emby-button" class="raised button-submit"><span>Save source</span></button>
+                </div>
+            </div>
         </div>
     </div>
 
     <script type="text/javascript">
         (function () {
             var pluginUniqueId = "110ae7e3-0c55-4684-b0f8-3e86eb2b53af";
+            var page = document.querySelector("#JellyDvrGuidesConfigPage");
+            var config = null;
+            var statuses = [];
+            var tuners = [];
+            var sd = null;
+            var editing = -1;
 
-            function load(page, config) {
-                page.querySelector("#UpstreamUrl").value = config.UpstreamUrl || "";
-                page.querySelector("#MinRefetchMinutes").value = config.MinRefetchMinutes != null ? config.MinRefetchMinutes : 10;
-                page.querySelector("#UpstreamTimeoutSeconds").value = config.UpstreamTimeoutSeconds || 120;
-                page.querySelector("#LocalNetworkOnly").checked = config.LocalNetworkOnly !== false;
-                page.querySelector("#SdUsername").value = config.SdUsername || "";
-                page.querySelector("#SdDays").value = config.SdDays || 14;
-                page.querySelector("#SdAccountResult").textContent = config.SdPasswordHash ? "Account saved (" + config.SdUsername + ")." : "No account saved.";
-                page.querySelector("#ExtraUpstreamUrls").value = (config.ExtraUpstreamUrls || []).join("\n");
-                showUrls(config);
+            function q(sel) { return page.querySelector(sel); }
+
+            function el(tag, cls, text) {
+                var e = document.createElement(tag);
+                if (cls) { e.className = cls; }
+                if (text != null) { e.textContent = text; }
+                return e;
             }
 
-            // Guide 1 is the main upstream (guide.xml); the extra ones are guide2.xml, guide3.xml, …
-            function guideName(i) {
-                return i === 0 ? "guide.xml" : "guide" + (i + 1) + ".xml";
+            function api(type, path, data) {
+                var o = { type: type, url: ApiClient.getUrl("JellyDvrGuides/" + path), dataType: "json" };
+                if (data !== undefined) {
+                    o.data = JSON.stringify(data);
+                    o.contentType = "application/json";
+                }
+                return ApiClient.ajax(o);
             }
 
-            function showUrls(config) {
-                var ups = [config.UpstreamUrl || "(main URL not set)"].concat(config.ExtraUpstreamUrls || []);
-                document.querySelector("#CleanedUrl").textContent = ups.map(function (u, i) {
-                    return ApiClient.getUrl("XmltvCleaner/" + guideName(i)) + "\n    \u2190 " + u;
-                }).join("\n");
+            function errorText(e) {
+                return Promise.resolve(e && e.text ? e.text() : "").then(function (t) { return (t || "").replace(/^"|"$/g, ""); });
             }
 
-            function showStatus(all) {
-                var out = document.querySelector("#RefreshResult");
-                if (!all) {
-                    out.textContent = "No fetch yet since the server started.";
+            function tunerName(id) {
+                var t = tuners.filter(function (x) { return x.Id === id; })[0];
+                return t ? t.Name : "a removed tuner";
+            }
+
+            function lineupInfo(id) {
+                return ((sd && sd.Lineups) || []).filter(function (l) { return l.Lineup === id; })[0];
+            }
+
+            function when(utc) {
+                return new Date(utc).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+            }
+
+            // ---- source cards ----
+
+            function renderSources() {
+                var box = q("#Sources");
+                box.innerHTML = "";
+                if (!config.Sources.length) {
+                    box.appendChild(el("div", "fieldDescription", "No guide sources yet."));
+                    box.lastChild.style.marginBottom = "1em";
+                }
+                config.Sources.forEach(function (s, i) {
+                    var st = statuses.filter(function (x) { return x.Id === s.Id; })[0] || {};
+                    var isSd = s.Type === "sd";
+                    var card = el("div", "jg-card");
+                    var head = el("div", "jg-head");
+                    var left = el("div");
+                    var title = el("div", "jg-title");
+                    title.appendChild(el("h3", null, s.Name || s.Id));
+                    title.appendChild(el("span", "jg-tag", isSd ? "SCHEDULES DIRECT" : "XMLTV"));
+                    if (!isSd && s.Clean) { title.appendChild(el("span", "jg-tag jg-clean", "CLEANED")); }
+                    left.appendChild(title);
+                    if (isSd) {
+                        var li = lineupInfo(s.Lineup);
+                        left.appendChild(el("div", "jg-sub", "Lineup " + s.Lineup + (li && li.Name ? " · " + li.Name : "") + " · " + s.Days + " days"));
+                        left.appendChild(el("div", "jg-sub", "No cleaning needed: written by the plugin in the shape Jellyfin reads"));
+                    } else {
+                        left.appendChild(el("div", "jg-sub", "From " + (s.Url || "(no address)")));
+                        var fixes = [];
+                        if (s.Clean && s.CleanYears) { fixes.push("doubled movie years"); }
+                        if (s.Clean && s.CleanIds) { fixes.push("Gracenote ids for Jellyfin"); }
+                        left.appendChild(el("div", "jg-sub", fixes.length ? "Cleaning: " + fixes.join(" · ") : "Passed through as it is"));
+                    }
+                    head.appendChild(left);
+                    var actions = el("div", "jg-actions");
+                    var edit = el("button", "raised emby-button", "Edit");
+                    edit.type = "button";
+                    edit.addEventListener("click", function () { openDialog(i); });
+                    actions.appendChild(edit);
+                    var fetch = el("button", "raised emby-button", isSd ? "Write now" : "Fetch now");
+                    fetch.type = "button";
+                    fetch.addEventListener("click", function () {
+                        fetch.disabled = true;
+                        fetch.textContent = isSd ? "Writing..." : "Fetching...";
+                        api("POST", "Refresh/" + encodeURIComponent(s.Id)).then(function (all) {
+                            statuses = all || [];
+                            renderSources();
+                        }).catch(function (e) {
+                            errorText(e).then(function (t) { q("#ApplyResult").textContent = "Fetch failed. " + t; });
+                            renderSources();
+                        });
+                    });
+                    actions.appendChild(fetch);
+                    head.appendChild(actions);
+                    card.appendChild(head);
+
+                    var rows = el("div", "jg-rows");
+                    function row(label, value, cls) {
+                        rows.appendChild(el("span", null, label));
+                        rows.appendChild(el("span", cls || null, value));
+                    }
+                    row("Address for Jellyfin", st.Address || ApiClient.getUrl("JellyDvrGuides/guide/" + s.Id + ".xml"));
+                    var p = st.Provider;
+                    row("In Jellyfin", !p || !p.InJellyfin ? "Not added yet" + (s.ManageProvider ? "" : " (Edit to let the plugin add it)")
+                        : "Guide provider for " + (p.AllTuners ? "all tuners (limit it to its own tuners)" : p.Tuners.length ? p.Tuners.map(tunerName).join(", ") : "no tuners"));
+                    var f = st.Fetch;
+                    if (f && f.FetchedUtc) {
+                        var bits = [when(f.FetchedUtc), f.Programmes.toLocaleString() + " programmes"];
+                        if (f.TitlesCleaned) { bits.push(f.TitlesCleaned.toLocaleString() + " years removed"); }
+                        if (f.ProgramIdsAdded) { bits.push(f.ProgramIdsAdded.toLocaleString() + " ids added"); }
+                        row(isSd ? "Guide written" : "Last fetch", bits.join(" · "));
+                    } else {
+                        row(isSd ? "Guide written" : "Last fetch", "Not since the server started");
+                    }
+                    if (f && f.LastError) {
+                        row("Last error", when(f.LastErrorUtc) + ": " + f.LastError, "jg-err");
+                    }
+                    card.appendChild(rows);
+                    box.appendChild(card);
+                });
+            }
+
+            // ---- add / edit dialog ----
+
+            function slug(text) {
+                return (text || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
+            }
+
+            function showType() {
+                var isSd = q("#SrcType").value === "sd";
+                q("#SrcXmltv").hidden = isSd;
+                q("#SrcSd").hidden = !isSd;
+                q("#SrcCleanOptions").hidden = !q("#SrcClean").checked;
+                q("#SrcAddress").textContent = ApiClient.getUrl("JellyDvrGuides/guide/" + (q("#SrcId").value || "…") + ".xml");
+                var manage = q("#SrcManage").checked;
+                Array.prototype.forEach.call(q("#SrcTuners").querySelectorAll("input"), function (c) { c.disabled = !manage; });
+            }
+
+            function openDialog(index) {
+                editing = index;
+                var s = index >= 0 ? config.Sources[index] : {
+                    Id: "", Name: "", Type: "xmltv", Url: "", Lineup: "", Days: 14,
+                    Clean: true, CleanYears: true, CleanIds: true, ManageProvider: true, Tuners: []
+                };
+                q("#SourceDialogTitle").textContent = index >= 0 ? "Edit guide source" : "Add guide source";
+                q("#SrcName").value = s.Name || "";
+                q("#SrcType").value = s.Type === "sd" ? "sd" : "xmltv";
+                q("#SrcUrl").value = s.Url || "";
+                q("#SrcClean").checked = s.Clean !== false;
+                q("#SrcCleanYears").checked = s.CleanYears !== false;
+                q("#SrcCleanIds").checked = s.CleanIds !== false;
+                q("#SrcDays").value = s.Days || 14;
+                q("#SrcId").value = s.Id || "";
+                q("#SrcId").dataset.auto = index >= 0 ? "" : "1";
+                q("#SrcManage").checked = !!s.ManageProvider;
+
+                var lineup = q("#SrcLineup");
+                lineup.innerHTML = "";
+                var known = ((sd && sd.Lineups) || []).slice();
+                if (s.Lineup && !known.some(function (l) { return l.Lineup === s.Lineup; })) {
+                    known.push({ Lineup: s.Lineup, Name: "(not on the account)" });
+                }
+                if (!known.length) {
+                    lineup.appendChild(el("option", null, "Sign in and Update now to list your lineups"));
+                    lineup.lastChild.value = "";
+                }
+                known.forEach(function (l) {
+                    var o = el("option", null, l.Lineup + (l.Name ? " · " + l.Name : "") + (l.Transport ? " (" + l.Transport + ")" : ""));
+                    o.value = l.Lineup;
+                    lineup.appendChild(o);
+                });
+                lineup.value = s.Lineup || (known[0] ? known[0].Lineup : "");
+
+                var tbox = q("#SrcTuners");
+                tbox.innerHTML = "";
+                if (!tuners.length) { tbox.appendChild(el("span", "fieldDescription", "No tuners in Jellyfin.")); }
+                tuners.forEach(function (t) {
+                    var label = el("label", "jg-check");
+                    var c = document.createElement("input");
+                    c.type = "checkbox";
+                    c.value = t.Id;
+                    c.checked = (s.Tuners || []).indexOf(t.Id) >= 0;
+                    label.appendChild(c);
+                    label.appendChild(el("span", null, t.Name));
+                    tbox.appendChild(label);
+                });
+
+                q("#SrcDelete").hidden = index < 0;
+                q("#SrcError").textContent = "";
+                showType();
+                q("#SourceDialog").hidden = false;
+                q("#SrcName").focus();
+            }
+
+            function closeDialog() {
+                q("#SourceDialog").hidden = true;
+            }
+
+            function dialogSource() {
+                var old = editing >= 0 ? config.Sources[editing] : {};
+                var isSd = q("#SrcType").value === "sd";
+                return {
+                    Id: q("#SrcId").value.trim().toLowerCase(),
+                    Name: q("#SrcName").value.trim(),
+                    Type: isSd ? "sd" : "xmltv",
+                    Url: isSd ? "" : q("#SrcUrl").value.trim(),
+                    Lineup: isSd ? q("#SrcLineup").value : "",
+                    Days: Math.min(21, Math.max(1, parseInt(q("#SrcDays").value, 10) || 14)),
+                    Clean: !isSd && q("#SrcClean").checked,
+                    CleanYears: q("#SrcCleanYears").checked,
+                    CleanIds: q("#SrcCleanIds").checked,
+                    ManageProvider: q("#SrcManage").checked,
+                    Tuners: Array.prototype.filter.call(q("#SrcTuners").querySelectorAll("input"), function (c) { return c.checked; })
+                        .map(function (c) { return c.value; }),
+                    ProviderId: old.ProviderId || ""
+                };
+            }
+
+            function validate(s) {
+                if (!s.Name) { return "Give the source a name."; }
+                if (!/^[a-z0-9][a-z0-9-]*$/.test(s.Id)) { return "The address name takes lower-case letters, digits and dashes."; }
+                if (config.Sources.some(function (x, i) { return i !== editing && x.Id.toLowerCase() === s.Id; })) { return "Another source already uses that address name."; }
+                if (s.Type === "xmltv" && !/^https?:\/\//i.test(s.Url)) { return "Enter the guide's address (http://…)."; }
+                if (s.Type === "sd" && !s.Lineup) { return "Pick a lineup (sign in and Update now to list them)."; }
+                if (s.ManageProvider && !s.Tuners.length) { return "Tick the tuners the guide is for (a guide for all tuners gives each tuner's channels the wrong guide)."; }
+                return null;
+            }
+
+            // Saves the sources (from the latest config, so nothing the server set is lost) and
+            // then lets the plugin bring Jellyfin's guide providers in line.
+            function saveSources(sources) {
+                Dashboard.showLoadingMsg();
+                return ApiClient.getPluginConfiguration(pluginUniqueId).then(function (fresh) {
+                    fresh.Sources = sources;
+                    return ApiClient.updatePluginConfiguration(pluginUniqueId, fresh);
+                }).then(function () {
+                    return api("POST", "Providers/Apply").then(function (changes) {
+                        q("#ApplyResult").textContent = (changes || []).length ? changes.join("\n") + "\nJellyfin's Refresh Guide is running." : "";
+                    }).catch(function (e) {
+                        return errorText(e).then(function (t) { q("#ApplyResult").textContent = t || "Couldn't update Jellyfin's guide providers."; });
+                    });
+                }).then(reload).finally(function () { Dashboard.hideLoadingMsg(); });
+            }
+
+            q("#SrcType").addEventListener("change", function () {
+                if (q("#SrcType").value === "sd") { q("#SrcClean").checked = false; }
+                showType();
+            });
+            q("#SrcClean").addEventListener("change", showType);
+            q("#SrcManage").addEventListener("change", showType);
+            q("#SrcName").addEventListener("input", function () {
+                if (q("#SrcId").dataset.auto) {
+                    q("#SrcId").value = slug(q("#SrcName").value);
+                    showType();
+                }
+            });
+            q("#SrcId").addEventListener("input", function () {
+                q("#SrcId").dataset.auto = "";
+                showType();
+            });
+            q("#SrcCancel").addEventListener("click", closeDialog);
+            q("#SourceDialog").addEventListener("keydown", function (e) { if (e.key === "Escape") { closeDialog(); } });
+            q("#SrcSave").addEventListener("click", function () {
+                var s = dialogSource();
+                var problem = validate(s);
+                if (problem) {
+                    q("#SrcError").textContent = problem;
                     return;
                 }
-                out.textContent = [].concat(all).map(function (s, i) {
-                    return guideName(i) + ":\n" + statusLines(s).map(function (l) { return "  " + l; }).join("\n");
-                }).join("\n\n");
-            }
+                var sources = config.Sources.slice();
+                if (editing >= 0) { sources[editing] = s; } else { sources.push(s); }
+                closeDialog();
+                saveSources(sources);
+            });
+            q("#SrcDelete").addEventListener("click", function () {
+                var s = config.Sources[editing];
+                var managed = s.ProviderId && (config.ManagedProviderIds || []).indexOf(s.ProviderId) >= 0;
+                q("#SrcError").textContent = "";
+                if (q("#SrcDelete").dataset.armed !== "1") {
+                    q("#SrcDelete").dataset.armed = "1";
+                    q("#SrcDelete").querySelector("span").textContent = "Delete " + (managed ? "it and its guide provider" : "it") + "?";
+                    return;
+                }
+                q("#SrcDelete").dataset.armed = "";
+                q("#SrcDelete").querySelector("span").textContent = "Delete source";
+                var sources = config.Sources.filter(function (x, i) { return i !== editing; });
+                closeDialog();
+                saveSources(sources);
+            });
+            q("#AddSource").addEventListener("click", function () { openDialog(-1); });
 
-            function statusLines(s) {
-                if (!s) {
-                    return ["No fetch yet since the server started."];
-                }
-                var lines = [];
-                if (s.FetchedUtc) {
-                    lines.push("Last successful fetch: " + new Date(s.FetchedUtc).toLocaleString() + " (" + s.DurationMs + " ms)");
-                    lines.push("Programmes: " + s.Programmes + ", titles cleaned: " + s.TitlesCleaned + ", program ids added: " + s.ProgramIdsAdded);
-                    (s.Samples || []).forEach(function (x) { lines.push("  " + x); });
-                }
-                if (s.LastError) {
-                    lines.push("Last error (" + new Date(s.LastErrorUtc).toLocaleString() + "): " + s.LastError);
-                }
-                return lines;
-            }
+            // ---- Schedules Direct ----
 
             function showSd(s) {
-                var out = document.querySelector("#SdStatus");
+                sd = s;
+                var out = q("#SdStatus");
+                q("#SdAccountResult").textContent = s && s.Username ? "Signed in as " + s.Username + "." : "No account saved.";
                 if (!s) {
                     out.textContent = "";
                     return;
@@ -172,103 +482,84 @@
                 var lines = [];
                 var u = s.Update;
                 if (u && u.FinishedUtc) {
-                    lines.push("Last update: " + new Date(u.FinishedUtc).toLocaleString() + " (" + Math.round(u.DurationMs / 1000) + " s): " +
-                        u.Lineups + " lineups, " + u.Stations + " stations; " + u.DaysFetched + " changed days and " + u.ProgramsFetched + " programmes downloaded.");
+                    lines.push("Last update " + when(u.FinishedUtc) + " (" + Math.round(u.DurationMs / 1000) + " s): " +
+                        u.Lineups + " lineup(s) in use, " + u.Stations + " stations; " + u.DaysFetched + " changed days and " + u.ProgramsFetched + " programmes downloaded.");
                 }
-                if (u && u.Error) {
-                    lines.push("Last error (" + new Date(u.ErrorUtc).toLocaleString() + "): " + u.Error);
-                }
+                if (u && u.Error) { lines.push("Last error (" + when(u.ErrorUtc) + "): " + u.Error); }
                 if (s.Blocked) { lines.push("Paused " + s.Blocked); }
                 if (s.ImagesBlocked) { lines.push("Pictures: " + s.ImagesBlocked); }
                 if (!lines.length) { lines.push("No update since the server started."); }
-                out.textContent = lines.join("\n");
+                var used = (config ? config.Sources : []).filter(function (x) { return x.Type === "sd"; }).map(function (x) { return x.Lineup; });
                 var ls = s.Lineups || [];
-                document.querySelector("#SdLineups").textContent = ls.length
-                    ? ls.map(function (l) {
-                        return "sd:" + l.Lineup + "    " + (l.Name || "") + (l.Transport ? " \u00b7 " + l.Transport : "") + (l.Location ? " \u00b7 " + l.Location : "");
-                    }).join("\n") + "\n\nPut one of these in the main URL or in More guides, then Save."
-                    : "Update once to list them (add lineups on the Schedules Direct website).";
+                if (ls.length) {
+                    lines.push("Lineups on the account: " + ls.map(function (l) {
+                        return l.Lineup + (used.indexOf(l.Lineup) >= 0 ? " (in use)" : "");
+                    }).join(" · "));
+                }
+                out.textContent = lines.join("\n");
             }
 
-            function loadSd() {
-                ApiClient.ajax({ type: "GET", url: ApiClient.getUrl("XmltvCleaner/SchedulesDirect/Status"), dataType: "json" })
-                    .then(showSd).catch(function () { showSd(null); });
-            }
-
-            document.querySelector("#SdSignIn").addEventListener("click", function () {
-                var page = document.querySelector("#XmltvCleanerConfigPage");
-                var out = page.querySelector("#SdAccountResult");
+            q("#SdSignIn").addEventListener("click", function () {
+                var out = q("#SdAccountResult");
                 out.textContent = "Signing in...";
-                ApiClient.ajax({
-                    type: "POST",
-                    url: ApiClient.getUrl("XmltvCleaner/SchedulesDirect/Account"),
-                    data: JSON.stringify({ Username: page.querySelector("#SdUsername").value, Password: page.querySelector("#SdPassword").value }),
-                    contentType: "application/json",
-                    dataType: "text"
-                }).then(function (text) {
-                    page.querySelector("#SdPassword").value = "";
-                    out.textContent = (text || "Signed in.").replace(/^"|"$/g, "");
-                }).catch(function (e) {
-                    var why = e && e.text ? e.text() : Promise.resolve("");
-                    Promise.resolve(why).then(function (t) { out.textContent = "Sign-in failed. " + (t || ""); });
-                });
-            });
-
-            document.querySelector("#SdUpdate").addEventListener("click", function () {
-                document.querySelector("#SdStatus").textContent = "Updating from Schedules Direct... (the first time takes a few minutes)";
-                ApiClient.ajax({ type: "POST", url: ApiClient.getUrl("XmltvCleaner/SchedulesDirect/Update"), dataType: "json" })
-                    .then(showSd).catch(function () { document.querySelector("#SdStatus").textContent = "Update request failed."; });
-            });
-
-            document.querySelector("#XmltvCleanerConfigPage")
-                .addEventListener("pageshow", function () {
-                    var page = this;
-                    Dashboard.showLoadingMsg();
-                    ApiClient.getPluginConfiguration(pluginUniqueId).then(function (config) {
-                        load(page, config);
-                        Dashboard.hideLoadingMsg();
+                api("POST", "SchedulesDirect/Account", { Username: q("#SdUsername").value, Password: q("#SdPassword").value })
+                    .then(function (text) {
+                        q("#SdPassword").value = "";
+                        out.textContent = text || "Signed in.";
+                    }).catch(function (e) {
+                        errorText(e).then(function (t) { out.textContent = "Sign-in failed. " + t; });
                     });
-                    ApiClient.ajax({
-                        type: "GET",
-                        url: ApiClient.getUrl("XmltvCleaner/Status"),
-                        dataType: "json"
-                    }).then(showStatus).catch(function () { showStatus(null); });
-                    loadSd();
-                });
-
-            document.querySelector("#RefreshBtn").addEventListener("click", function () {
-                var out = document.querySelector("#RefreshResult");
-                out.textContent = "Fetching... (save first if you changed the URL)";
-                ApiClient.ajax({
-                    type: "POST",
-                    url: ApiClient.getUrl("XmltvCleaner/Refresh"),
-                    dataType: "json"
-                }).then(showStatus).catch(function () {
-                    out.textContent = "Refresh request failed.";
-                });
             });
 
-            document.querySelector("#XmltvCleanerConfigForm")
-                .addEventListener("submit", function (e) {
-                    e.preventDefault();
-                    var page = document.querySelector("#XmltvCleanerConfigPage");
-                    Dashboard.showLoadingMsg();
-                    ApiClient.getPluginConfiguration(pluginUniqueId).then(function (config) {
-                        config.UpstreamUrl = page.querySelector("#UpstreamUrl").value;
-                        config.ExtraUpstreamUrls = page.querySelector("#ExtraUpstreamUrls").value.split("\n")
-                            .map(function (u) { return u.trim(); })
-                            .filter(function (u) { return u.length > 0; });
-                        config.MinRefetchMinutes = parseInt(page.querySelector("#MinRefetchMinutes").value, 10) || 0;
-                        config.UpstreamTimeoutSeconds = parseInt(page.querySelector("#UpstreamTimeoutSeconds").value, 10) || 120;
-                        config.LocalNetworkOnly = page.querySelector("#LocalNetworkOnly").checked;
-                        config.SdDays = parseInt(page.querySelector("#SdDays").value, 10) || 14;
-                        ApiClient.updatePluginConfiguration(pluginUniqueId, config).then(function (result) {
-                            showUrls(config);
-                            Dashboard.processPluginConfigurationUpdateResult(result);
-                        });
-                    });
-                    return false;
+            q("#SdUpdate").addEventListener("click", function () {
+                q("#SdStatus").textContent = "Updating from Schedules Direct... (the first time takes a minute or two)";
+                api("POST", "SchedulesDirect/Update").then(function (s) {
+                    showSd(s);
+                    renderSources();
+                }).catch(function () { q("#SdStatus").textContent = "Update request failed."; });
+            });
+
+            // ---- load / save ----
+
+            function reload() {
+                return Promise.all([
+                    ApiClient.getPluginConfiguration(pluginUniqueId),
+                    api("GET", "Status").catch(function () { return []; }),
+                    api("GET", "Tuners").catch(function () { return []; }),
+                    api("GET", "SchedulesDirect/Status").catch(function () { return null; })
+                ]).then(function (r) {
+                    config = r[0];
+                    config.Sources = config.Sources || [];
+                    statuses = r[1] || [];
+                    tuners = r[2] || [];
+                    q("#LocalNetworkOnly").checked = config.LocalNetworkOnly !== false;
+                    q("#MinRefetchMinutes").value = config.MinRefetchMinutes != null ? config.MinRefetchMinutes : 10;
+                    q("#UpstreamTimeoutSeconds").value = config.UpstreamTimeoutSeconds || 120;
+                    q("#SdUsername").value = config.SdUsername || "";
+                    showSd(r[3]);
+                    renderSources();
                 });
+            }
+
+            page.addEventListener("pageshow", function () {
+                Dashboard.showLoadingMsg();
+                reload().finally(function () { Dashboard.hideLoadingMsg(); });
+            });
+
+            q("#JellyDvrGuidesConfigForm").addEventListener("submit", function (e) {
+                e.preventDefault();
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginUniqueId).then(function (fresh) {
+                    fresh.LocalNetworkOnly = q("#LocalNetworkOnly").checked;
+                    fresh.MinRefetchMinutes = parseInt(q("#MinRefetchMinutes").value, 10) || 0;
+                    fresh.UpstreamTimeoutSeconds = parseInt(q("#UpstreamTimeoutSeconds").value, 10) || 120;
+                    return ApiClient.updatePluginConfiguration(pluginUniqueId, fresh);
+                }).then(function (result) {
+                    Dashboard.processPluginConfigurationUpdateResult(result);
+                    return reload();
+                }).finally(function () { Dashboard.hideLoadingMsg(); });
+                return false;
+            });
         })();
     </script>
 </div>

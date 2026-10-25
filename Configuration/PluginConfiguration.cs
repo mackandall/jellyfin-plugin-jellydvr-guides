@@ -3,12 +3,65 @@ using MediaBrowser.Model.Plugins;
 
 namespace Jellyfin.Plugin.XmltvCleaner.Configuration;
 
+/// <summary>
+/// One guide source: an XMLTV address or a Schedules Direct lineup, served as one guide at
+/// guide/&lt;Id&gt;.xml for one Jellyfin guide provider.
+/// </summary>
+public class GuideSource
+{
+    public const string Xmltv = "xmltv";
+    public const string SchedulesDirect = "sd";
+
+    /// <summary>The address name: guide/&lt;Id&gt;.xml. Lower-case letters, digits and dashes.</summary>
+    public string Id { get; set; } = string.Empty;
+
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary><see cref="Xmltv"/> or <see cref="SchedulesDirect"/>.</summary>
+    public string Type { get; set; } = Xmltv;
+
+    /// <summary>XMLTV: the guide's address. Deliberately a setting, never a request parameter,
+    /// so the anonymous guide address can't be used to fetch arbitrary URLs.</summary>
+    public string Url { get; set; } = string.Empty;
+
+    /// <summary>Schedules Direct: the lineup id, e.g. USA-OTA-73071.</summary>
+    public string Lineup { get; set; } = string.Empty;
+
+    /// <summary>Schedules Direct: days of guide from today.</summary>
+    public int Days { get; set; } = 14;
+
+    /// <summary>XMLTV: clean it at all (both fixes below are only applied when on).</summary>
+    public bool Clean { get; set; } = true;
+
+    /// <summary>Remove a year already in a movie title when it matches the programme's date.</summary>
+    public bool CleanYears { get; set; } = true;
+
+    /// <summary>Copy Gracenote (tms) episode ids to dd_progid, which Jellyfin reads.</summary>
+    public bool CleanIds { get; set; } = true;
+
+    /// <summary>Keep a Jellyfin guide provider pointing here, limited to <see cref="Tuners"/>.</summary>
+    public bool ManageProvider { get; set; }
+
+    /// <summary>Jellyfin tuner ids the guide provider is for.</summary>
+    public string[] Tuners { get; set; } = System.Array.Empty<string>();
+
+    /// <summary>The Jellyfin guide provider this source keeps up (set by the plugin).</summary>
+    public string ProviderId { get; set; } = string.Empty;
+}
+
 public class PluginConfiguration : BasePluginConfiguration
 {
+    /// <summary>The guide sources, in the order the settings page lists them.</summary>
+    public GuideSource[] Sources { get; set; } = System.Array.Empty<GuideSource>();
+
+    /// <summary>Jellyfin guide providers this plugin added or took over (removed with their source).</summary>
+    public string[] ManagedProviderIds { get; set; } = System.Array.Empty<string>();
+
     // Trimmed on set: the config page tends to leave stray whitespace on pasted values.
     private string _upstreamUrl = string.Empty;
 
     /// <summary>
+    /// Before sources (1.0): the one upstream, moved into <see cref="Sources"/> at start-up.
     /// The original XMLTV guide URL (what Jellyfin's XMLTV listings provider pointed at
     /// before switching it to this plugin's endpoint), e.g. a Channels DVR
     /// <c>/devices/&lt;id&gt;/guide/xmltv?duration=1209600</c> URL. Deliberately a config
@@ -24,6 +77,7 @@ public class PluginConfiguration : BasePluginConfiguration
     private string[] _extraUpstreamUrls = System.Array.Empty<string>();
 
     /// <summary>
+    /// Before sources (1.1 preview), moved into <see cref="Sources"/> at start-up.
     /// More guides to clean, each served at its own address: the first at guide2.xml, the next
     /// at guide3.xml, and so on (e.g. a tuner's own guide, kept apart from the main one so each
     /// Jellyfin guide provider can be limited to its own tuner).
@@ -64,6 +118,6 @@ public class PluginConfiguration : BasePluginConfiguration
     /// </summary>
     public string SdPasswordHash { get; set; } = string.Empty;
 
-    /// <summary>Days of guide to keep from Schedules Direct, from today.</summary>
+    /// <summary>Before sources: days of Schedules Direct guide (now per source).</summary>
     public int SdDays { get; set; } = 14;
 }

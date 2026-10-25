@@ -16,6 +16,7 @@ public sealed class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<SchedulesDirect.SdUpdater>();
         serviceCollection.AddSingleton<SchedulesDirect.SdImages>();
         serviceCollection.AddSingleton<GuideService>();
+        serviceCollection.AddSingleton<ProviderSync>();
 
         // Jellyfin builds its MVC ApplicationPartManager from its own assembly before any
         // plugin loads and never re-scans, so a plugin's controllers are silently absent

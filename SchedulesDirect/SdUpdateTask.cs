@@ -10,7 +10,7 @@ namespace Jellyfin.Plugin.XmltvCleaner.SchedulesDirect;
 /// <summary>
 /// Dashboard › Scheduled Tasks: brings the Schedules Direct copy up to date, once a day at
 /// 5:00 and at start-up if the last update is over 20 hours old. Does nothing until a guide
-/// uses Schedules Direct ("sd:" in the plugin settings).
+/// source uses Schedules Direct.
 /// </summary>
 public sealed class SdUpdateTask : IScheduledTask
 {
@@ -25,15 +25,14 @@ public sealed class SdUpdateTask : IScheduledTask
 
     public string Key => "XmltvCleanerSchedulesDirect";
 
-    public string Description => "Downloads what changed in the Schedules Direct guide (at most once a day) for the XMLTV Guide Cleaner's \"sd:\" guides.";
+    public string Description => "Downloads what changed in the Schedules Direct guide (at most once a day) for JellyDVR Guides' Schedules Direct sources.";
 
     public string Category => "Live TV";
 
     public async Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken)
     {
         var cfg = Plugin.Instance?.Configuration;
-        var usesSd = cfg is not null
-            && new[] { cfg.UpstreamUrl }.Concat(cfg.ExtraUpstreamUrls).Any(u => u.StartsWith(GuideService.SdPrefix, StringComparison.OrdinalIgnoreCase));
+        var usesSd = cfg is not null && cfg.Sources.Any(s => s.Type == Configuration.GuideSource.SchedulesDirect);
         if (!usesSd || string.IsNullOrEmpty(cfg!.SdPasswordHash))
         {
             return;

@@ -50,7 +50,10 @@ public static class GuideCleaner
 
     public sealed record CleanResult(int Programmes, int TitlesCleaned, int ProgramIdsAdded, IReadOnlyList<string> Samples);
 
-    public static CleanResult Clean(Stream input, Stream output, CancellationToken cancellationToken)
+    /// <param name="stripYears">Remove a year already in a title (the first fix).</param>
+    /// <param name="copyIds">Copy tms ids to dd_progid (the second fix). Both off: the guide passes
+    /// through unchanged, only checked and counted.</param>
+    public static CleanResult Clean(Stream input, Stream output, CancellationToken cancellationToken, bool stripYears = true, bool copyIds = true)
     {
         var readerSettings = new XmlReaderSettings
         {
@@ -100,7 +103,7 @@ public static class GuideCleaner
                     // ReadFrom advances the reader past the element.
                     var programme = (XElement)XNode.ReadFrom(reader);
                     programmes++;
-                    if (CleanProgramme(programme, out var sample))
+                    if (stripYears && CleanProgramme(programme, out var sample))
                     {
                         cleaned++;
                         if (samples.Count < MaxSamples && !samples.Contains(sample))
@@ -109,7 +112,7 @@ public static class GuideCleaner
                         }
                     }
 
-                    if (AddProgramId(programme))
+                    if (copyIds && AddProgramId(programme))
                     {
                         idsAdded++;
                     }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using Jellyfin.Plugin.XmltvCleaner.Configuration;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
@@ -23,17 +24,59 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         : base(applicationPaths, xmlSerializer)
     {
         Instance = this;
+        MoveToSources(Configuration);
     }
 
     public static Plugin? Instance { get; private set; }
 
-    public override string Name => "XMLTV Guide Cleaner";
+    public override string Name => "JellyDVR Guides";
 
     public override string Description =>
-        "Serves a cleaned copy of an upstream XMLTV guide, stripping a year already baked " +
-        "into a movie's title so recordings aren't named \"Movie (2001) (2001)\".";
+        "Guide sources for Jellyfin's Live TV: XMLTV guides (cleaned of the problems Jellyfin " +
+        "misreads, if asked) and Schedules Direct lineups fetched once a day, each served as " +
+        "one guide for one Jellyfin guide provider.";
 
     public override Guid Id => PluginId;
+
+    /// <summary>
+    /// Settings from before sources (one upstream URL, then "More guides" URLs) become sources:
+    /// the first keeps its old address (guide.xml), the rest guide2.xml… as before.
+    /// </summary>
+    private void MoveToSources(PluginConfiguration cfg)
+    {
+        if (cfg.Sources.Length > 0 || (string.IsNullOrWhiteSpace(cfg.UpstreamUrl) && cfg.ExtraUpstreamUrls.Length == 0))
+        {
+            return;
+        }
+
+        var urls = new[] { cfg.UpstreamUrl }.Concat(cfg.ExtraUpstreamUrls).ToList();
+        var sources = new List<GuideSource>();
+        for (var i = 0; i < urls.Count; i++)
+        {
+            var url = urls[i].Trim();
+            if (url.Length == 0)
+            {
+                continue;
+            }
+
+            var sd = url.StartsWith("sd:", StringComparison.OrdinalIgnoreCase);
+            sources.Add(new GuideSource
+            {
+                Id = i == 0 ? "main" : "guide" + (i + 1),
+                Name = i == 0 ? "Main guide" : "Guide " + (i + 1),
+                Type = sd ? GuideSource.SchedulesDirect : GuideSource.Xmltv,
+                Url = sd ? string.Empty : url,
+                Lineup = sd ? url[3..].Trim() : string.Empty,
+                Days = cfg.SdDays,
+                Clean = !sd
+            });
+        }
+
+        cfg.Sources = sources.ToArray();
+        cfg.UpstreamUrl = string.Empty;
+        cfg.ExtraUpstreamUrls = Array.Empty<string>();
+        SaveConfiguration();
+    }
 
     public IEnumerable<PluginPageInfo> GetPages()
     {

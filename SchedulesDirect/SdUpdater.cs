@@ -78,11 +78,9 @@ public sealed class SdUpdater
         var sw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
-            // Only the lineups a guide uses ("sd:<lineup>") are downloaded; the rest are only listed.
-            var used = new[] { cfg.UpstreamUrl }.Concat(cfg.ExtraUpstreamUrls)
-                .Where(u => u.StartsWith(GuideService.SdPrefix, StringComparison.OrdinalIgnoreCase))
-                .Select(u => u[GuideService.SdPrefix.Length..].Trim())
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            // Only the lineups a source uses are downloaded; the rest are only listed.
+            var sdSources = cfg.Sources.Where(x => x.Type == GuideSource.SchedulesDirect && x.Lineup.Trim().Length > 0).ToList();
+            var used = sdSources.Select(x => x.Lineup.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var usedList = string.Join(",", used.OrderBy(u => u, StringComparer.OrdinalIgnoreCase));
 
             // The stamp holds the lineups it covered: a guide switched to another lineup updates at once.
@@ -139,7 +137,7 @@ public sealed class SdUpdater
             }
 
             progress?.Report(10);
-            var days = Math.Clamp(cfg.SdDays, 1, 21);
+            var days = sdSources.Count == 0 ? 1 : Math.Clamp(sdSources.Max(x => x.Days), 1, 21);
             var dates = Enumerable.Range(0, days).Select(d => DateTime.UtcNow.Date.AddDays(d).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)).ToList();
 
             // Fingerprints of every station-day; only the ones that differ are fetched.

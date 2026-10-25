@@ -17,6 +17,7 @@ namespace Jellyfin.Plugin.XmltvCleaner.Web;
 /// </summary>
 [ApiController]
 [Route("XmltvCleaner")]
+[Route("JellyDvrGuides")]
 public sealed class SchedulesDirectController : ControllerBase
 {
     private readonly SdClient _client;

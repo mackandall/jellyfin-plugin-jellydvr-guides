@@ -1,9 +1,9 @@
 {
   "category": "Live TV",
   "changelog": "",
-  "description": "Serves a cleaned copy of an upstream XMLTV guide: strips a year that is already baked into a movie's title (e.g. \"Movie (2001)\") when it matches the programme's <date>, so Jellyfin stops naming recordings \"Movie (2001) (2001)\".",
+  "description": "Guide sources for Jellyfin's Live TV: XMLTV guides (cleaned of what Jellyfin misreads, such as \"Movie (2001) (2001)\" titles and missing episode ids, if asked) and Schedules Direct lineups fetched once a day, each served as one guide for one Jellyfin guide provider limited to its tuners.",
   "guid": "110ae7e3-0c55-4684-b0f8-3e86eb2b53af",
-  "name": "XMLTV Guide Cleaner",
+  "name": "JellyDVR Guides",
   "overview": "",
   "owner": "",
   "targetAbi": "12.0.0.0",

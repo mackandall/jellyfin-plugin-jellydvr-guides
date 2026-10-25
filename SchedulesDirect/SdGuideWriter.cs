@@ -15,7 +15,7 @@ namespace Jellyfin.Plugin.XmltvCleaner.SchedulesDirect;
 /// Channels DVR's guide (which Jellyfin already reads well): channel ids are the channel
 /// numbers ("4.1", "202"), so channels map to the tuner's by number and keep the programme
 /// ids Jellyfin's timers know; categories say Movie / Series / Sports; the Gracenote id goes
-/// in a "tms" episode-num (the cleaner then copies it to dd_progid).
+/// in a "tms" episode-num and in "dd_progid", the one Jellyfin reads (no cleaning pass needed).
 /// </summary>
 public static class SdGuideWriter
 {
@@ -168,7 +168,7 @@ public static class SdGuideWriter
         if (HasArtwork(d) && SdImages.KeyOf(id) is { } key)
         {
             w.WriteStartElement("icon");
-            w.WriteAttributeString("src", $"{imageBase}XmltvCleaner/image/{key}.jpg?p={id}");
+            w.WriteAttributeString("src", $"{imageBase}JellyDvrGuides/image/{key}.jpg?p={id}");
             w.WriteEndElement();
         }
 
@@ -192,6 +192,7 @@ public static class SdGuideWriter
         }
 
         WriteEpisodeNum(w, "tms", id);
+        WriteEpisodeNum(w, "dd_progid", id);
         if (air["new"]?.GetValue<bool>() == true)
         {
             w.WriteStartElement("new");
