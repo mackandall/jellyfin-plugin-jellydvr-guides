@@ -134,10 +134,10 @@ public sealed class GuideService
             var stamp = Path.Combine(_sd.Root, "updated");
             // A copy made under other settings (type, address, lineup, cleaning) is never fresh.
             var sameSettings = File.Exists(guidePath + ".src") && File.ReadAllText(guidePath + ".src") == Signature(source);
-            var fresh = sameSettings && fromSd
+            var fresh = sameSettings && (fromSd
                 // Schedules Direct: rewritten only after the local copy was updated.
                 ? File.Exists(guidePath) && File.Exists(stamp) && File.GetLastWriteTimeUtc(guidePath) >= File.GetLastWriteTimeUtc(stamp)
-                : File.Exists(guidePath) && File.GetLastWriteTimeUtc(guidePath) >= DateTime.UtcNow.AddMinutes(-Math.Max(0, cfg.MinRefetchMinutes));
+                : File.Exists(guidePath) && File.GetLastWriteTimeUtc(guidePath) >= DateTime.UtcNow.AddMinutes(-Math.Max(0, cfg.MinRefetchMinutes)));
             if (!force && fresh)
             {
                 return guidePath;
