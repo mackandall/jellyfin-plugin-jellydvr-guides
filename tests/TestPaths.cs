@@ -1,7 +1,7 @@
 using System.Reflection;
 using MediaBrowser.Common.Configuration;
 
-namespace Jellyfin.Plugin.XmltvCleaner.Tests;
+namespace Jellyfin.Plugin.JellyDvrGuides.Tests;
 
 /// <summary>Application paths with only DataPath, pointing at a fresh folder deleted on dispose.</summary>
 public sealed class TestPaths : IDisposable

@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using Jellyfin.Plugin.XmltvCleaner.Configuration;
+using Jellyfin.Plugin.JellyDvrGuides.Configuration;
 using MediaBrowser.Common.Configuration;
 
-namespace Jellyfin.Plugin.XmltvCleaner.Guides;
+namespace Jellyfin.Plugin.JellyDvrGuides.Guides;
 
 /// <summary>
 /// The guide files on disk: guide-&lt;id&gt;.xml per source, each with a guide-&lt;id&gt;.xml.src
@@ -18,7 +18,7 @@ public sealed partial class GuideCopies
 {
     public GuideCopies(IApplicationPaths applicationPaths)
     {
-        Directory = Path.Combine(applicationPaths.DataPath, "xmltv-cleaner");
+        Directory = Path.Combine(applicationPaths.DataPath, Plugin.DataFolderName);
 
         // 1.0 kept its one guide as guide.xml: it's the first source's last good copy now.
         var old = Path.Combine(Directory, "guide.xml");

@@ -2,7 +2,7 @@ using System.Net;
 using MediaBrowser.Common.Net;
 using Microsoft.AspNetCore.Http;
 
-namespace Jellyfin.Plugin.XmltvCleaner.Web;
+namespace Jellyfin.Plugin.JellyDvrGuides.Web;
 
 /// <summary>
 /// The "only on the home network" setting for the addresses that need no sign-in (guides and

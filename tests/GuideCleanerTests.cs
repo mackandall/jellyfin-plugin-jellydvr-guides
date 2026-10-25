@@ -1,8 +1,8 @@
 using System.Text;
-using Jellyfin.Plugin.XmltvCleaner.Guides;
+using Jellyfin.Plugin.JellyDvrGuides.Guides;
 using Xunit;
 
-namespace Jellyfin.Plugin.XmltvCleaner.Tests;
+namespace Jellyfin.Plugin.JellyDvrGuides.Tests;
 
 public class GuideCleanerTests
 {

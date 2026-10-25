@@ -1,14 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
-using Jellyfin.Plugin.XmltvCleaner.Configuration;
+using Jellyfin.Plugin.JellyDvrGuides.Configuration;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Common.Plugins;
 using MediaBrowser.Model.Plugins;
 using MediaBrowser.Model.Serialization;
 
-namespace Jellyfin.Plugin.XmltvCleaner;
+namespace Jellyfin.Plugin.JellyDvrGuides;
 
 /// <summary>
 /// XMLTV guide-cleaner plugin entry point. The dashboard icon comes from meta.json's
@@ -17,13 +18,17 @@ namespace Jellyfin.Plugin.XmltvCleaner;
 /// </summary>
 public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 {
-    // This GUID must match meta.json and pluginUniqueId in Configuration/configPage.html.
+    /// <summary>The plugin's folder under the server's data folder (guide copies, Schedules Direct copy, pictures).</summary>
+    public const string DataFolderName = "jellydvr-guides";
+
+    // This GUID must match meta.json and pluginUniqueId in Configuration/configPage.js.
     private static readonly Guid PluginId = Guid.Parse("110ae7e3-0c55-4684-b0f8-3e86eb2b53af");
 
     public Plugin(IApplicationPaths applicationPaths, IXmlSerializer xmlSerializer)
         : base(applicationPaths, xmlSerializer)
     {
         Instance = this;
+        CarryOverFromXmltvCleaner(applicationPaths);
         if (MoveToSources(Configuration))
         {
             SaveConfiguration();
@@ -31,6 +36,27 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     }
 
     public static Plugin? Instance { get; private set; }
+
+    /// <summary>
+    /// Before the rename the DLL was Jellyfin.Plugin.XmltvCleaner, so its settings were in
+    /// Jellyfin.Plugin.XmltvCleaner.xml and its files in &lt;data&gt;/xmltv-cleaner. Copied (the
+    /// old settings file stays as a backup) and moved once, before the settings are first read.
+    /// </summary>
+    private void CarryOverFromXmltvCleaner(IApplicationPaths paths)
+    {
+        var oldSettings = Path.Combine(paths.PluginConfigurationsPath, "Jellyfin.Plugin.XmltvCleaner.xml");
+        if (!File.Exists(ConfigurationFilePath) && File.Exists(oldSettings))
+        {
+            File.Copy(oldSettings, ConfigurationFilePath);
+        }
+
+        var oldData = Path.Combine(paths.DataPath, "xmltv-cleaner");
+        var data = Path.Combine(paths.DataPath, DataFolderName);
+        if (!Directory.Exists(data) && Directory.Exists(oldData))
+        {
+            Directory.Move(oldData, data);
+        }
+    }
 
     public override string Name => "JellyDVR Guides";
 

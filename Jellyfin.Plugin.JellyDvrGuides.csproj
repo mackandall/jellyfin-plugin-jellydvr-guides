@@ -5,7 +5,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
-    <RootNamespace>Jellyfin.Plugin.XmltvCleaner</RootNamespace>
+    <RootNamespace>Jellyfin.Plugin.JellyDvrGuides</RootNamespace>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
@@ -30,7 +30,7 @@
     <Compile Remove="tests/**" />
     <None Remove="tests/**" />
     <EmbeddedResource Remove="tests/**" />
-    <InternalsVisibleTo Include="Jellyfin.Plugin.XmltvCleaner.Tests" />
+    <InternalsVisibleTo Include="Jellyfin.Plugin.JellyDvrGuides.Tests" />
   </ItemGroup>
 
   <ItemGroup>

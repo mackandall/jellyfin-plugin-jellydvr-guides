@@ -1,10 +1,10 @@
-using Jellyfin.Plugin.XmltvCleaner.Configuration;
-using Jellyfin.Plugin.XmltvCleaner.Guides;
-using Jellyfin.Plugin.XmltvCleaner.Providers;
-using Jellyfin.Plugin.XmltvCleaner.SchedulesDirect;
+using Jellyfin.Plugin.JellyDvrGuides.Configuration;
+using Jellyfin.Plugin.JellyDvrGuides.Guides;
+using Jellyfin.Plugin.JellyDvrGuides.Providers;
+using Jellyfin.Plugin.JellyDvrGuides.SchedulesDirect;
 using Xunit;
 
-namespace Jellyfin.Plugin.XmltvCleaner.Tests;
+namespace Jellyfin.Plugin.JellyDvrGuides.Tests;
 
 public class SmallPartsTests
 {

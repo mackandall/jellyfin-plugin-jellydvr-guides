@@ -2,21 +2,20 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Jellyfin.Plugin.XmltvCleaner.SchedulesDirect;
+using Jellyfin.Plugin.JellyDvrGuides.SchedulesDirect;
 using MediaBrowser.Common.Api;
 using MediaBrowser.Common.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Jellyfin.Plugin.XmltvCleaner.Web;
+namespace Jellyfin.Plugin.JellyDvrGuides.Web;
 
 /// <summary>
 /// Schedules Direct: the settings page's account check, lineups, Update now and status
 /// (admins only), and the programme pictures the guides link to (no sign-in, like the guides).
 /// </summary>
 [ApiController]
-[Route("XmltvCleaner")]
 [Route("JellyDvrGuides")]
 public sealed class SchedulesDirectController : ControllerBase
 {

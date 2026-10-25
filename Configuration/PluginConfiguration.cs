@@ -1,7 +1,7 @@
 using System.Linq;
 using MediaBrowser.Model.Plugins;
 
-namespace Jellyfin.Plugin.XmltvCleaner.Configuration;
+namespace Jellyfin.Plugin.JellyDvrGuides.Configuration;
 
 /// <summary>
 /// One guide source: an XMLTV address or a Schedules Direct lineup, served as one guide at

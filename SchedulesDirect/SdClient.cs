@@ -7,10 +7,10 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
-using Jellyfin.Plugin.XmltvCleaner.Configuration;
+using Jellyfin.Plugin.JellyDvrGuides.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace Jellyfin.Plugin.XmltvCleaner.SchedulesDirect;
+namespace Jellyfin.Plugin.JellyDvrGuides.SchedulesDirect;
 
 /// <summary>
 /// Talks to the Schedules Direct JSON API (version 20141201), politely. Their servers lock
@@ -25,7 +25,7 @@ public sealed class SdClient
     public const string Api = "https://json.schedulesdirect.org/20141201/";
 
     // Their terms ask for the software and its version in the user agent.
-    private static readonly string UserAgent = "JellyDVR-XmltvCleaner/" + typeof(SdClient).Assembly.GetName().Version?.ToString(3);
+    private static readonly string UserAgent = "JellyDVR-Guides/" + typeof(SdClient).Assembly.GetName().Version?.ToString(3);
 
     // Its own client: guide downloads are big and Schedules Direct compresses them.
     private static readonly HttpClient Http = new(new SocketsHttpHandler

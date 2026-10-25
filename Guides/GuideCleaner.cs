@@ -6,7 +6,7 @@ using System.Threading;
 using System.Xml;
 using System.Xml.Linq;
 
-namespace Jellyfin.Plugin.XmltvCleaner.Guides;
+namespace Jellyfin.Plugin.JellyDvrGuides.Guides;
 
 /// <summary>
 /// The pure XMLTV transform. Channels DVR's XMLTV feed bakes a movie's release year into

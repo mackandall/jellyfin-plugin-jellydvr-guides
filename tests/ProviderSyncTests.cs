@@ -1,9 +1,9 @@
-using Jellyfin.Plugin.XmltvCleaner.Configuration;
-using Jellyfin.Plugin.XmltvCleaner.Providers;
+using Jellyfin.Plugin.JellyDvrGuides.Configuration;
+using Jellyfin.Plugin.JellyDvrGuides.Providers;
 using MediaBrowser.Model.LiveTv;
 using Xunit;
 
-namespace Jellyfin.Plugin.XmltvCleaner.Tests;
+namespace Jellyfin.Plugin.JellyDvrGuides.Tests;
 
 public class ProviderSyncTests
 {

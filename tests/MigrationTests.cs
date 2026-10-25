@@ -1,8 +1,8 @@
-using Jellyfin.Plugin.XmltvCleaner.Configuration;
-using Jellyfin.Plugin.XmltvCleaner.Web;
+using Jellyfin.Plugin.JellyDvrGuides.Configuration;
+using Jellyfin.Plugin.JellyDvrGuides.Web;
 using Xunit;
 
-namespace Jellyfin.Plugin.XmltvCleaner.Tests;
+namespace Jellyfin.Plugin.JellyDvrGuides.Tests;
 
 public class MigrationTests
 {

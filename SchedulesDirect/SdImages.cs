@@ -6,10 +6,10 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using Jellyfin.Plugin.XmltvCleaner.Configuration;
+using Jellyfin.Plugin.JellyDvrGuides.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace Jellyfin.Plugin.XmltvCleaner.SchedulesDirect;
+namespace Jellyfin.Plugin.JellyDvrGuides.SchedulesDirect;
 
 /// <summary>
 /// Programme pictures for Schedules Direct guides. The guide points Jellyfin at this plugin

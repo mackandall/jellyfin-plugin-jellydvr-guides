@@ -7,11 +7,11 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
-using Jellyfin.Plugin.XmltvCleaner.Configuration;
+using Jellyfin.Plugin.JellyDvrGuides.Configuration;
 using MediaBrowser.Common.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace Jellyfin.Plugin.XmltvCleaner.SchedulesDirect;
+namespace Jellyfin.Plugin.JellyDvrGuides.SchedulesDirect;
 
 /// <summary>
 /// Keeps a local copy of the account's Schedules Direct guide, brought up to date about once a
@@ -20,7 +20,7 @@ namespace Jellyfin.Plugin.XmltvCleaner.SchedulesDirect;
 /// when its own fingerprint changed. Guides are then written from this copy as often as
 /// Jellyfin likes without asking Schedules Direct anything.
 ///
-/// Laid out under the server's data folder, xmltv-cleaner/sd/: lineups/&lt;lineup&gt;.json,
+/// Laid out under the server's data folder, jellydvr-guides/sd/: lineups/&lt;lineup&gt;.json,
 /// schedules/&lt;station&gt;_&lt;date&gt;.json, programs/&lt;programID&gt;.json.
 /// </summary>
 public sealed class SdUpdater
@@ -37,7 +37,7 @@ public sealed class SdUpdater
     {
         _client = client;
         _logger = logger;
-        Root = Path.Combine(paths.DataPath, "xmltv-cleaner", "sd");
+        Root = Path.Combine(paths.DataPath, Plugin.DataFolderName, "sd");
     }
 
     public string Root { get; }

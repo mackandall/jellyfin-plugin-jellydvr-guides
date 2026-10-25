@@ -5,7 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediaBrowser.Model.Tasks;
 
-namespace Jellyfin.Plugin.XmltvCleaner.SchedulesDirect;
+namespace Jellyfin.Plugin.JellyDvrGuides.SchedulesDirect;
 
 /// <summary>
 /// Dashboard › Scheduled Tasks: brings the Schedules Direct copy up to date, once a day at
@@ -23,7 +23,7 @@ public sealed class SdUpdateTask : IScheduledTask
 
     public string Name => "Update Schedules Direct guide";
 
-    public string Key => "XmltvCleanerSchedulesDirect";
+    public string Key => "JellyDvrGuidesSchedulesDirect";
 
     public string Description => "Downloads what changed in the Schedules Direct guide (at most once a day) for JellyDVR Guides' Schedules Direct sources.";
 

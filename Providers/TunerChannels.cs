@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using MediaBrowser.Controller.LiveTv;
 using Microsoft.Extensions.Logging;
 
-namespace Jellyfin.Plugin.XmltvCleaner.Providers;
+namespace Jellyfin.Plugin.JellyDvrGuides.Providers;
 
 /// <summary>The channel numbers Jellyfin's tuners carry, from Jellyfin's cached channel lists.</summary>
 public sealed class TunerChannels

@@ -1,11 +1,11 @@
-using Jellyfin.Plugin.XmltvCleaner.Guides;
-using Jellyfin.Plugin.XmltvCleaner.Providers;
-using Jellyfin.Plugin.XmltvCleaner.Web;
+using Jellyfin.Plugin.JellyDvrGuides.Guides;
+using Jellyfin.Plugin.JellyDvrGuides.Providers;
+using Jellyfin.Plugin.JellyDvrGuides.Web;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Jellyfin.Plugin.XmltvCleaner;
+namespace Jellyfin.Plugin.JellyDvrGuides;
 
 /// <summary>
 /// Registers plugin services into Jellyfin's DI container at startup.

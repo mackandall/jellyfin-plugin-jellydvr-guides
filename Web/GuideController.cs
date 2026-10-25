@@ -3,16 +3,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Jellyfin.Plugin.XmltvCleaner.Configuration;
-using Jellyfin.Plugin.XmltvCleaner.Guides;
-using Jellyfin.Plugin.XmltvCleaner.Providers;
+using Jellyfin.Plugin.JellyDvrGuides.Configuration;
+using Jellyfin.Plugin.JellyDvrGuides.Guides;
+using Jellyfin.Plugin.JellyDvrGuides.Providers;
 using MediaBrowser.Common.Api;
 using MediaBrowser.Common.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Jellyfin.Plugin.XmltvCleaner.Web;
+namespace Jellyfin.Plugin.JellyDvrGuides.Web;
 
 /// <summary>
 /// The guide addresses Jellyfin's XMLTV guide providers are pointed at (one per source), plus

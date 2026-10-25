@@ -6,12 +6,12 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using Jellyfin.Plugin.XmltvCleaner.Configuration;
-using Jellyfin.Plugin.XmltvCleaner.Providers;
-using Jellyfin.Plugin.XmltvCleaner.SchedulesDirect;
+using Jellyfin.Plugin.JellyDvrGuides.Configuration;
+using Jellyfin.Plugin.JellyDvrGuides.Providers;
+using Jellyfin.Plugin.JellyDvrGuides.SchedulesDirect;
 using Microsoft.Extensions.Logging;
 
-namespace Jellyfin.Plugin.XmltvCleaner.Guides;
+namespace Jellyfin.Plugin.JellyDvrGuides.Guides;
 
 /// <summary>
 /// Serves each guide source as one guide file, keeping the last good copy on disk

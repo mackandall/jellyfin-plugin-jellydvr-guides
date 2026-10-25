@@ -7,9 +7,9 @@ using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Xml;
-using Jellyfin.Plugin.XmltvCleaner.Providers;
+using Jellyfin.Plugin.JellyDvrGuides.Providers;
 
-namespace Jellyfin.Plugin.XmltvCleaner.SchedulesDirect;
+namespace Jellyfin.Plugin.JellyDvrGuides.SchedulesDirect;
 
 /// <summary>
 /// Writes one Schedules Direct lineup as an XMLTV guide, from the local copy only, shaped like

@@ -1,9 +1,9 @@
 using System.Text;
-using Jellyfin.Plugin.XmltvCleaner.SchedulesDirect;
+using Jellyfin.Plugin.JellyDvrGuides.SchedulesDirect;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
-namespace Jellyfin.Plugin.XmltvCleaner.Tests;
+namespace Jellyfin.Plugin.JellyDvrGuides.Tests;
 
 public sealed class SdGuideWriterTests : IDisposable
 {

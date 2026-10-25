@@ -44,7 +44,7 @@ tick, and points out (and offers to remove) any other provider covering the same
   Movie / Series / Sports; the Gracenote id is in `dd_progid`). By default it holds only the
   channel numbers its tuners carry: a lineup lists hundreds of channels your tuner may not,
   and Jellyfin re-reads the whole guide for every channel it refreshes.
-- The last good copy of each guide is kept under `<jellyfin data>/xmltv-cleaner/`. If a
+- The last good copy of each guide is kept under `<jellyfin data>/jellydvr-guides/`. If a
   source is down, times out or returns an empty guide, that copy is served instead. This
   matters because Jellyfin doesn't check the HTTP status of an XMLTV download, so an error
   page would otherwise become the guide. A copy is remade when its source's settings change.
@@ -104,4 +104,4 @@ their duplicated names; only future recordings are affected.
 GPL-2.0-or-later: you can redistribute and change it under the terms of the GNU General Public
 License, version 2 or (at your option) any later version. See [LICENSE](LICENSE).
 
-The official source and releases are at <https://github.com/mackandall/jellyfin-plugin-xmltv-cleaner>.
+The official source and releases are at <https://github.com/mackandall/jellyfin-plugin-jellydvr-guides>.
