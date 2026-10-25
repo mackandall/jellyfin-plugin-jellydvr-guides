@@ -13,7 +13,8 @@ namespace Jellyfin.Plugin.XmltvCleaner;
 
 /// <summary>
 /// Fetches the upstream guide, runs it through <see cref="GuideCleaner"/>, and keeps the
-/// last good cleaned copy on disk.
+/// last good cleaned copy on disk. Feed 1 is the main upstream (guide.xml); feeds 2, 3, …
+/// are the extra upstreams (guide2.xml, guide3.xml, …), each with its own copy and status.
 ///
 /// Serving the cleaned guide on demand (rather than writing a file on a separate
 /// schedule) means Jellyfin's own "Refresh Guide" task always gets data as fresh as the
@@ -30,7 +31,7 @@ public sealed class GuideService
     private readonly ILogger<GuideService> _logger;
     private readonly SemaphoreSlim _lock = new(1, 1);
     private readonly string _directory;
-    private readonly string _guidePath;
+    private readonly Dictionary<int, RefreshStatus> _statuses = new();
 
     public GuideService(IHttpClientFactory httpClientFactory, IApplicationPaths applicationPaths, ILogger<GuideService> logger)
     {
@@ -40,8 +41,18 @@ public sealed class GuideService
         // Under the server's data dir, not the plugin's own (versioned) install folder, so
         // the last good copy survives a plugin upgrade.
         _directory = Path.Combine(applicationPaths.DataPath, "xmltv-cleaner");
-        _guidePath = Path.Combine(_directory, "guide.xml");
     }
+
+    /// <summary>The upstream URL of a feed, or null when there is no such feed.</summary>
+    public static string? UpstreamOf(PluginConfiguration cfg, int feed) =>
+        feed == 1 ? cfg.UpstreamUrl
+        : feed >= 2 && feed - 2 < cfg.ExtraUpstreamUrls.Length ? cfg.ExtraUpstreamUrls[feed - 2]
+        : null;
+
+    /// <summary>How many feeds are set up (the main one counts even while its URL is empty).</summary>
+    public static int FeedCount(PluginConfiguration cfg) => 1 + cfg.ExtraUpstreamUrls.Length;
+
+    private string PathOf(int feed) => Path.Combine(_directory, feed == 1 ? "guide.xml" : $"guide{feed}.xml");
 
     public sealed record RefreshStatus(
         DateTime? FetchedUtc,
@@ -53,7 +64,21 @@ public sealed class GuideService
         string? LastError,
         DateTime? LastErrorUtc);
 
-    public RefreshStatus? LastStatus { get; private set; }
+    public RefreshStatus? StatusOf(int feed)
+    {
+        lock (_statuses)
+        {
+            return _statuses.GetValueOrDefault(feed);
+        }
+    }
+
+    private void SetStatus(int feed, RefreshStatus status)
+    {
+        lock (_statuses)
+        {
+            _statuses[feed] = status;
+        }
+    }
 
     /// <summary>
     /// Returns the path of a cleaned guide file to serve, refreshing it from upstream first
@@ -61,40 +86,42 @@ public sealed class GuideService
     /// (or <paramref name="force"/> is set). Throws only when upstream fails AND no previous
     /// cleaned copy exists.
     /// </summary>
-    public async Task<string> GetGuidePathAsync(bool force, CancellationToken cancellationToken)
+    public async Task<string> GetGuidePathAsync(int feed, bool force, CancellationToken cancellationToken)
     {
         var cfg = Plugin.Instance?.Configuration ?? new PluginConfiguration();
+        var upstream = UpstreamOf(cfg, feed) ?? throw new InvalidOperationException($"There is no guide {feed} (plugin settings).");
+        var guidePath = PathOf(feed);
 
         await _lock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            if (!force && File.Exists(_guidePath)
-                && File.GetLastWriteTimeUtc(_guidePath) >= DateTime.UtcNow.AddMinutes(-Math.Max(0, cfg.MinRefetchMinutes)))
+            if (!force && File.Exists(guidePath)
+                && File.GetLastWriteTimeUtc(guidePath) >= DateTime.UtcNow.AddMinutes(-Math.Max(0, cfg.MinRefetchMinutes)))
             {
-                return _guidePath;
+                return guidePath;
             }
 
             try
             {
-                await RefreshAsync(cfg, cancellationToken).ConfigureAwait(false);
+                await RefreshAsync(feed, upstream, guidePath, cfg, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
             {
-                LastStatus = (LastStatus ?? new RefreshStatus(null, 0, 0, 0, Array.Empty<string>(), 0, null, null))
-                    with { LastError = ex.Message, LastErrorUtc = DateTime.UtcNow };
+                SetStatus(feed, (StatusOf(feed) ?? new RefreshStatus(null, 0, 0, 0, Array.Empty<string>(), 0, null, null))
+                    with { LastError = ex.Message, LastErrorUtc = DateTime.UtcNow });
 
-                if (File.Exists(_guidePath))
+                if (File.Exists(guidePath))
                 {
-                    _logger.LogWarning(ex, "Refreshing XMLTV guide from upstream failed; serving the last good cleaned copy from {Time:u}",
-                        File.GetLastWriteTimeUtc(_guidePath));
-                    return _guidePath;
+                    _logger.LogWarning(ex, "Refreshing XMLTV guide {Feed} from upstream failed; serving the last good cleaned copy from {Time:u}",
+                        feed, File.GetLastWriteTimeUtc(guidePath));
+                    return guidePath;
                 }
 
-                _logger.LogError(ex, "Refreshing XMLTV guide from upstream failed and no previous cleaned copy exists");
+                _logger.LogError(ex, "Refreshing XMLTV guide {Feed} from upstream failed and no previous cleaned copy exists", feed);
                 throw;
             }
 
-            return _guidePath;
+            return guidePath;
         }
         finally
         {
@@ -102,15 +129,15 @@ public sealed class GuideService
         }
     }
 
-    private async Task RefreshAsync(PluginConfiguration cfg, CancellationToken cancellationToken)
+    private async Task RefreshAsync(int feed, string upstream, string guidePath, PluginConfiguration cfg, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrEmpty(cfg.UpstreamUrl))
+        if (string.IsNullOrEmpty(upstream))
         {
             throw new InvalidOperationException("No upstream XMLTV URL is configured (plugin settings).");
         }
 
         Directory.CreateDirectory(_directory);
-        var tempPath = _guidePath + ".tmp";
+        var tempPath = guidePath + ".tmp";
         var sw = Stopwatch.StartNew();
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -120,7 +147,7 @@ public sealed class GuideService
         try
         {
             using var response = await _httpClientFactory.CreateClient()
-                .GetAsync(cfg.UpstreamUrl, HttpCompletionOption.ResponseHeadersRead, timeout.Token)
+                .GetAsync(upstream, HttpCompletionOption.ResponseHeadersRead, timeout.Token)
                 .ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
 
@@ -144,7 +171,7 @@ public sealed class GuideService
                 throw new InvalidDataException("Upstream guide contained no <programme> entries.");
             }
 
-            File.Move(tempPath, _guidePath, overwrite: true);
+            File.Move(tempPath, guidePath, overwrite: true);
         }
         finally
         {
@@ -155,9 +182,10 @@ public sealed class GuideService
         }
 
         sw.Stop();
-        LastStatus = new RefreshStatus(DateTime.UtcNow, result.Programmes, result.TitlesCleaned, result.ProgramIdsAdded, result.Samples, sw.ElapsedMilliseconds, null, null);
+        SetStatus(feed, new RefreshStatus(DateTime.UtcNow, result.Programmes, result.TitlesCleaned, result.ProgramIdsAdded, result.Samples, sw.ElapsedMilliseconds, null, null));
         _logger.LogInformation(
-            "Cleaned XMLTV guide: {Programmes} programmes, {Cleaned} titles had a duplicate year stripped, {Ids} tms ids copied to dd_progid ({Ms} ms)",
+            "Cleaned XMLTV guide {Feed}: {Programmes} programmes, {Cleaned} titles had a duplicate year stripped, {Ids} tms ids copied to dd_progid ({Ms} ms)",
+            feed,
             result.Programmes, result.TitlesCleaned, result.ProgramIdsAdded, sw.ElapsedMilliseconds);
     }
 }

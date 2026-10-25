@@ -1,3 +1,4 @@
+using System.Linq;
 using MediaBrowser.Model.Plugins;
 
 namespace Jellyfin.Plugin.XmltvCleaner.Configuration;
@@ -18,6 +19,22 @@ public class PluginConfiguration : BasePluginConfiguration
     {
         get => _upstreamUrl;
         set => _upstreamUrl = value?.Trim() ?? string.Empty;
+    }
+
+    private string[] _extraUpstreamUrls = System.Array.Empty<string>();
+
+    /// <summary>
+    /// More guides to clean, each served at its own address: the first at guide2.xml, the next
+    /// at guide3.xml, and so on (e.g. a tuner's own guide, kept apart from the main one so each
+    /// Jellyfin guide provider can be limited to its own tuner).
+    /// </summary>
+    public string[] ExtraUpstreamUrls
+    {
+        get => _extraUpstreamUrls;
+        set => _extraUpstreamUrls = (value ?? System.Array.Empty<string>())
+            .Select(u => u?.Trim() ?? string.Empty)
+            .Where(u => u.Length > 0)
+            .ToArray();
     }
 
     /// <summary>

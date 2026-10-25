@@ -23,6 +23,12 @@
                     </div>
 
                     <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="ExtraUpstreamUrls">More guides (one URL per line)</label>
+                        <textarea id="ExtraUpstreamUrls" rows="3" class="emby-textarea" style="width:100%;box-sizing:border-box;"></textarea>
+                        <div class="fieldDescription">Each is cleaned the same way and served at its own address (below), so each Jellyfin guide provider can be limited to its own tuner, e.g. a Channels DVR HDHomeRun's /devices/&lt;id&gt;/guide/xmltv?duration=1209600.</div>
+                    </div>
+
+                    <div class="inputContainer">
                         <label class="inputLabel inputLabelUnfocused" for="MinRefetchMinutes">Minimum minutes between upstream fetches</label>
                         <input id="MinRefetchMinutes" name="MinRefetchMinutes" type="number" min="0" is="emby-input" />
                         <div class="fieldDescription">Requests newer than this reuse the last cleaned copy.</div>
@@ -46,7 +52,8 @@
                 <div class="verticalSection">
                     <h2>Point Jellyfin at the cleaned guide</h2>
                     <div class="fieldDescription">
-                        In Dashboard &rarr; Live TV, edit the XMLTV guide provider and set its file or URL to:
+                        In Dashboard &rarr; Live TV, edit the XMLTV guide provider and set its file or URL to the cleaned
+                        address of its guide (one guide provider for each):
                     </div>
                     <pre id="CleanedUrl" style="user-select:all;white-space:pre-wrap;word-break:break-all;"></pre>
                     <div class="fieldDescription">
@@ -78,14 +85,36 @@
                 page.querySelector("#MinRefetchMinutes").value = config.MinRefetchMinutes != null ? config.MinRefetchMinutes : 10;
                 page.querySelector("#UpstreamTimeoutSeconds").value = config.UpstreamTimeoutSeconds || 120;
                 page.querySelector("#LocalNetworkOnly").checked = config.LocalNetworkOnly !== false;
-                page.querySelector("#CleanedUrl").textContent = ApiClient.getUrl("XmltvCleaner/guide.xml");
+                page.querySelector("#ExtraUpstreamUrls").value = (config.ExtraUpstreamUrls || []).join("\n");
+                showUrls(config);
             }
 
-            function showStatus(s) {
+            // Guide 1 is the main upstream (guide.xml); the extra ones are guide2.xml, guide3.xml, …
+            function guideName(i) {
+                return i === 0 ? "guide.xml" : "guide" + (i + 1) + ".xml";
+            }
+
+            function showUrls(config) {
+                var ups = [config.UpstreamUrl || "(main URL not set)"].concat(config.ExtraUpstreamUrls || []);
+                document.querySelector("#CleanedUrl").textContent = ups.map(function (u, i) {
+                    return ApiClient.getUrl("XmltvCleaner/" + guideName(i)) + "\n    \u2190 " + u;
+                }).join("\n");
+            }
+
+            function showStatus(all) {
                 var out = document.querySelector("#RefreshResult");
-                if (!s) {
+                if (!all) {
                     out.textContent = "No fetch yet since the server started.";
                     return;
+                }
+                out.textContent = [].concat(all).map(function (s, i) {
+                    return guideName(i) + ":\n" + statusLines(s).map(function (l) { return "  " + l; }).join("\n");
+                }).join("\n\n");
+            }
+
+            function statusLines(s) {
+                if (!s) {
+                    return ["No fetch yet since the server started."];
                 }
                 var lines = [];
                 if (s.FetchedUtc) {
@@ -96,7 +125,7 @@
                 if (s.LastError) {
                     lines.push("Last error (" + new Date(s.LastErrorUtc).toLocaleString() + "): " + s.LastError);
                 }
-                out.textContent = lines.join("\n");
+                return lines;
             }
 
             document.querySelector("#XmltvCleanerConfigPage")
@@ -133,10 +162,14 @@
                     Dashboard.showLoadingMsg();
                     ApiClient.getPluginConfiguration(pluginUniqueId).then(function (config) {
                         config.UpstreamUrl = page.querySelector("#UpstreamUrl").value;
+                        config.ExtraUpstreamUrls = page.querySelector("#ExtraUpstreamUrls").value.split("\n")
+                            .map(function (u) { return u.trim(); })
+                            .filter(function (u) { return u.length > 0; });
                         config.MinRefetchMinutes = parseInt(page.querySelector("#MinRefetchMinutes").value, 10) || 0;
                         config.UpstreamTimeoutSeconds = parseInt(page.querySelector("#UpstreamTimeoutSeconds").value, 10) || 120;
                         config.LocalNetworkOnly = page.querySelector("#LocalNetworkOnly").checked;
                         ApiClient.updatePluginConfiguration(pluginUniqueId, config).then(function (result) {
+                            showUrls(config);
                             Dashboard.processPluginConfigurationUpdateResult(result);
                         });
                     });
