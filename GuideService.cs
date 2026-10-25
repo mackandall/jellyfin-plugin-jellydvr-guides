@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -118,6 +119,15 @@ public sealed class GuideService
             {
                 if (fromSd)
                 {
+                    // A lineup just put in the settings and not downloaded yet: download it now
+                    // (Jellyfin would otherwise keep the error reply as its guide). The updater
+                    // only goes to Schedules Direct when the lineups in use changed or a day passed.
+                    var lineup = upstream[SdPrefix.Length..].Trim();
+                    if (!File.Exists(_sd.LineupPath(lineup)) || !File.Exists(stamp) || !File.ReadAllText(stamp).Split(',').Contains(lineup, StringComparer.OrdinalIgnoreCase))
+                    {
+                        await _sd.UpdateAsync(false, null, cancellationToken).ConfigureAwait(false);
+                    }
+
                     WriteFromSd(feed, upstream[SdPrefix.Length..].Trim(), guidePath, cfg, imageBase ?? "http://localhost:8096/", cancellationToken);
                 }
                 else

@@ -78,8 +78,17 @@ public sealed class SdUpdater
         var sw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
+            // Only the lineups a guide uses ("sd:<lineup>") are downloaded; the rest are only listed.
+            var used = new[] { cfg.UpstreamUrl }.Concat(cfg.ExtraUpstreamUrls)
+                .Where(u => u.StartsWith(GuideService.SdPrefix, StringComparison.OrdinalIgnoreCase))
+                .Select(u => u[GuideService.SdPrefix.Length..].Trim())
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var usedList = string.Join(",", used.OrderBy(u => u, StringComparer.OrdinalIgnoreCase));
+
+            // The stamp holds the lineups it covered: a guide switched to another lineup updates at once.
             var stamp = Path.Combine(Root, "updated");
-            if (!force && File.Exists(stamp) && File.GetLastWriteTimeUtc(stamp) > DateTime.UtcNow.AddHours(-20))
+            if (!force && File.Exists(stamp) && File.GetLastWriteTimeUtc(stamp) > DateTime.UtcNow.AddHours(-20)
+                && File.ReadAllText(stamp) == usedList)
             {
                 return;
             }
@@ -103,6 +112,8 @@ public sealed class SdUpdater
             var listed = await _client.GetAsync(cfg, "lineups", ct).ConfigureAwait(false);
             File.WriteAllText(Path.Combine(Root, "lineups.json"), (listed["lineups"] ?? new JsonArray()).ToJsonString());
             progress?.Report(5);
+
+            lineups = lineups.Where(l => used.Contains(l["lineup"]!.ToString())).ToList();
 
             var stations = new HashSet<string>();
             foreach (var l in lineups)
@@ -237,8 +248,12 @@ public sealed class SdUpdater
                 progress?.Report(50 + (45.0 * (i + 1) / batches.Count));
             }
 
-            Tidy(dates[0]);
-            File.WriteAllText(stamp, DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture));
+            Tidy(dates[0], stations);
+            // Nothing used yet (an update just to list the lineups): no stamp, so the first real one isn't skipped.
+            if (used.Count > 0)
+            {
+                File.WriteAllText(stamp, usedList);
+            }
             sw.Stop();
             LastStatus = new UpdateStatus(DateTime.UtcNow, lineups.Count, stations.Count, fetchedDays, fetchedPrograms, sw.ElapsedMilliseconds, null, null);
             _logger.LogInformation(
@@ -258,14 +273,15 @@ public sealed class SdUpdater
         }
     }
 
-    // Past days, and programmes no longer in any schedule for a week.
-    private void Tidy(string today)
+    // Past days, stations no guide uses any more, and programmes no longer in any schedule for a week.
+    private void Tidy(string today, HashSet<string> stations)
     {
         var yesterday = DateTime.ParseExact(today, "yyyy-MM-dd", CultureInfo.InvariantCulture).AddDays(-1).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         foreach (var f in Directory.EnumerateFiles(Path.Combine(Root, "schedules"), "*.json"))
         {
-            var date = Path.GetFileNameWithoutExtension(f).Split('_').Last();
-            if (string.CompareOrdinal(date, yesterday) < 0)
+            var parts = Path.GetFileNameWithoutExtension(f).Split('_');
+            var date = parts.Last();
+            if (string.CompareOrdinal(date, yesterday) < 0 || !stations.Contains(parts[0]))
             {
                 TryDelete(f);
             }
