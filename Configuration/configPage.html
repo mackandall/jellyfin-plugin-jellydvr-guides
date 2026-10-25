@@ -10,6 +10,8 @@
      class="page type-interior pluginConfigurationPage"
      data-require="emby-input,emby-button,emby-checkbox,emby-select">
     <style>
+        /* The display rules below would otherwise beat the hidden attribute the script toggles. */
+        #JellyDvrGuidesConfigPage [hidden] { display: none !important; }
         #JellyDvrGuidesConfigPage .jg-card { background: rgba(255,255,255,.05); border-radius: 8px; padding: 1em 1.2em; margin-bottom: 1em; }
         #JellyDvrGuidesConfigPage .jg-head { display: flex; justify-content: space-between; gap: 1em; flex-wrap: wrap; align-items: flex-start; }
         #JellyDvrGuidesConfigPage .jg-title { display: flex; gap: .6em; align-items: center; flex-wrap: wrap; }

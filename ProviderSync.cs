@@ -39,8 +39,15 @@ public sealed class ProviderSync
 
     public IReadOnlyList<Tuner> Tuners() =>
         LiveTv().TunerHosts
-            .Select(t => new Tuner(t.Id, string.IsNullOrWhiteSpace(t.FriendlyName) ? t.Url : t.FriendlyName, t.Type))
+            .Select(t => new Tuner(t.Id, string.IsNullOrWhiteSpace(t.FriendlyName) ? TypeName(t.Type) + " at " + t.Url : t.FriendlyName, t.Type))
             .ToList();
+
+    private static string TypeName(string type) => type switch
+    {
+        "hdhomerun" => "HDHomeRun",
+        "m3u" => "M3U tuner",
+        _ => type
+    };
 
     /// <summary>
     /// The server address guide providers should use: the one an existing provider already
