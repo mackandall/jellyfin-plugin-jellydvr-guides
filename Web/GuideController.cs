@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.XmltvCleaner.Configuration;
+using Jellyfin.Plugin.XmltvCleaner.Guides;
+using Jellyfin.Plugin.XmltvCleaner.Providers;
 using MediaBrowser.Common.Api;
 using MediaBrowser.Common.Net;
 using Microsoft.AspNetCore.Authorization;

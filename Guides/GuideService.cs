@@ -12,7 +12,7 @@ using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller.LiveTv;
 using Microsoft.Extensions.Logging;
 
-namespace Jellyfin.Plugin.XmltvCleaner;
+namespace Jellyfin.Plugin.XmltvCleaner.Guides;
 
 /// <summary>
 /// Serves each guide source as one guide file, keeping the last good copy on disk

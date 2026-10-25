@@ -9,7 +9,7 @@ using MediaBrowser.Model.LiveTv;
 using MediaBrowser.Model.Tasks;
 using Microsoft.Extensions.Logging;
 
-namespace Jellyfin.Plugin.XmltvCleaner;
+namespace Jellyfin.Plugin.XmltvCleaner.Providers;
 
 /// <summary>
 /// Keeps one Jellyfin XMLTV guide provider per source that asks for it, pointing at the

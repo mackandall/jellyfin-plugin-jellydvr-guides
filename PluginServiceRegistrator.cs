@@ -1,3 +1,5 @@
+using Jellyfin.Plugin.XmltvCleaner.Guides;
+using Jellyfin.Plugin.XmltvCleaner.Providers;
 using Jellyfin.Plugin.XmltvCleaner.Web;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
