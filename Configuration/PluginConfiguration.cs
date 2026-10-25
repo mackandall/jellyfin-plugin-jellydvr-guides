@@ -63,31 +63,46 @@ public class PluginConfiguration : BasePluginConfiguration
     /// <summary>Jellyfin guide providers this plugin added or took over (removed with their source).</summary>
     public string[] ManagedProviderIds { get; set; } = System.Array.Empty<string>();
 
-    // Trimmed on set: the config page tends to leave stray whitespace on pasted values.
-    private string _upstreamUrl = string.Empty;
+    /// <summary>
+    /// XMLTV sources: a guide request re-serves the last copy instead of fetching the source
+    /// again if that copy is younger than this. Jellyfin itself re-downloads a guide at most
+    /// once an hour, so this mainly guards against the guide address being asked repeatedly.
+    /// </summary>
+    public int MinRefetchMinutes { get; set; } = 10;
+
+    /// <summary>XMLTV sources: seconds to wait for the source before falling back to the last good copy.</summary>
+    public int UpstreamTimeoutSeconds { get; set; } = 120;
 
     /// <summary>
-    /// Before sources (1.0): the one upstream, moved into <see cref="Sources"/> at start-up.
-    /// The original XMLTV guide URL (what Jellyfin's XMLTV listings provider pointed at
-    /// before switching it to this plugin's endpoint), e.g. a Channels DVR
-    /// <c>/devices/&lt;id&gt;/guide/xmltv?duration=1209600</c> URL. Deliberately a config
-    /// value rather than a query parameter on the anonymous guide endpoint, so that
-    /// endpoint can't be used as an open proxy to arbitrary URLs.
+    /// The guide and picture addresses need no sign-in (Jellyfin downloads them without
+    /// credentials), so by default they only answer the server itself and the home network
+    /// (Jellyfin's own LAN settings, Dashboard › Networking). Off: anyone who can reach the
+    /// server can read them.
     /// </summary>
+    public bool LocalNetworkOnly { get; set; } = true;
+
+    /// <summary>The Schedules Direct account every Schedules Direct source uses.</summary>
+    public string SdUsername { get; set; } = string.Empty;
+
+    /// <summary>
+    /// SHA-1 of the Schedules Direct password, lowercase hex: what their API takes. The
+    /// password itself is never stored (the settings page sends it once to be hashed).
+    /// </summary>
+    public string SdPasswordHash { get; set; } = string.Empty;
+
+    // Settings from before sources, read once at start-up by Plugin.MoveToSources and then
+    // emptied. Trimmed on set: the old page tended to leave stray whitespace on pasted values.
+    private string _upstreamUrl = string.Empty;
+    private string[] _extraUpstreamUrls = System.Array.Empty<string>();
+
+    /// <summary>Migration only (1.0): the one XMLTV guide URL, now the first source.</summary>
     public string UpstreamUrl
     {
         get => _upstreamUrl;
         set => _upstreamUrl = value?.Trim() ?? string.Empty;
     }
 
-    private string[] _extraUpstreamUrls = System.Array.Empty<string>();
-
-    /// <summary>
-    /// Before sources (1.1 preview), moved into <see cref="Sources"/> at start-up.
-    /// More guides to clean, each served at its own address: the first at guide2.xml, the next
-    /// at guide3.xml, and so on (e.g. a tuner's own guide, kept apart from the main one so each
-    /// Jellyfin guide provider can be limited to its own tuner).
-    /// </summary>
+    /// <summary>Migration only (1.1 preview): "More guides" URLs (guide2.xml…), now sources 2, 3…</summary>
     public string[] ExtraUpstreamUrls
     {
         get => _extraUpstreamUrls;
@@ -97,33 +112,6 @@ public class PluginConfiguration : BasePluginConfiguration
             .ToArray();
     }
 
-    /// <summary>
-    /// A request to the guide endpoint re-serves the last cleaned copy instead of
-    /// re-fetching upstream if that copy is younger than this. Jellyfin itself only
-    /// re-downloads the guide at most once an hour, so this mainly guards against the
-    /// anonymous endpoint being hit repeatedly.
-    /// </summary>
-    public int MinRefetchMinutes { get; set; } = 10;
-
-    /// <summary>Seconds to wait for the upstream guide before falling back to the last good copy.</summary>
-    public int UpstreamTimeoutSeconds { get; set; } = 120;
-
-    /// <summary>
-    /// The guide endpoint needs no sign-in (Jellyfin downloads it without credentials), so by
-    /// default it only answers the server itself and the home network (Jellyfin's own LAN
-    /// settings, Dashboard › Networking). Off: anyone who can reach the server can read it.
-    /// </summary>
-    public bool LocalNetworkOnly { get; set; } = true;
-
-    /// <summary>Schedules Direct account name (a guide whose URL is "sd:&lt;lineup&gt;" comes from it).</summary>
-    public string SdUsername { get; set; } = string.Empty;
-
-    /// <summary>
-    /// SHA-1 of the Schedules Direct password, lowercase hex: what their API takes. The
-    /// password itself is never stored (the settings page sends it once to be hashed).
-    /// </summary>
-    public string SdPasswordHash { get; set; } = string.Empty;
-
-    /// <summary>Before sources: days of Schedules Direct guide (now per source).</summary>
+    /// <summary>Migration only (1.1 preview): days of Schedules Direct guide, now per source.</summary>
     public int SdDays { get; set; } = 14;
 }

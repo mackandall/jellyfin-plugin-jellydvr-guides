@@ -82,7 +82,7 @@ public static class GuideCleaner
         reader.MoveToContent();
         if (reader.NodeType != XmlNodeType.Element)
         {
-            throw new InvalidDataException("Upstream guide has no root element.");
+            throw new InvalidDataException("The guide has no root element.");
         }
 
         // Root (<tv>): copy the start tag and attributes by hand so its children can be

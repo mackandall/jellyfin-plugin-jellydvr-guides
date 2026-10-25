@@ -247,7 +247,7 @@ public sealed class GuideService
                 }
             }
 
-            // A well-formed but empty guide almost certainly means an upstream hiccup;
+            // A well-formed but empty guide almost certainly means a hiccup at the source;
             // don't let it replace a good copy.
             if (result.Programmes == 0)
             {

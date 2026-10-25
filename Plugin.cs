@@ -39,8 +39,9 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     public override Guid Id => PluginId;
 
     /// <summary>
-    /// Settings from before sources (one upstream URL, then "More guides" URLs) become sources:
-    /// the first keeps its old address (guide.xml), the rest guide2.xml… as before.
+    /// Settings from before sources (1.0's one guide URL, then the 1.1 preview's "More guides"
+    /// URLs, "sd:&lt;lineup&gt;" for Schedules Direct) become sources: the first still answers at
+    /// guide.xml, the rest at guide2.xml… as before.
     /// </summary>
     private void MoveToSources(PluginConfiguration cfg)
     {
