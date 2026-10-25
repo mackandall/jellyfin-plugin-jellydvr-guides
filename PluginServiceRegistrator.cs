@@ -17,6 +17,8 @@ public sealed class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<SchedulesDirect.SdClient>();
         serviceCollection.AddSingleton<SchedulesDirect.SdUpdater>();
         serviceCollection.AddSingleton<SchedulesDirect.SdImages>();
+        serviceCollection.AddSingleton<GuideCopies>();
+        serviceCollection.AddSingleton<TunerChannels>();
         serviceCollection.AddSingleton<GuideService>();
         serviceCollection.AddSingleton<ProviderSync>();
 

@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Xml;
+using Jellyfin.Plugin.XmltvCleaner.Providers;
 
 namespace Jellyfin.Plugin.XmltvCleaner.SchedulesDirect;
 
@@ -23,7 +24,7 @@ public static class SdGuideWriter
 
     /// <summary>
     /// Writes the guide: every channel of the lineup, or only those whose number is in
-    /// <paramref name="onlyNumbers"/> (compared through <see cref="NormalizeNumber"/>). Returns
+    /// <paramref name="onlyNumbers"/> (compared through <see cref="TunerChannels.Normalize"/>). Returns
     /// the programmes and channels written and the lineup's channel count. Throws when the
     /// lineup isn't in the local copy.
     /// </summary>
@@ -61,7 +62,7 @@ public static class SdGuideWriter
         var inLineup = channels.Count;
         if (onlyNumbers is not null)
         {
-            channels = channels.Where(c => onlyNumbers.Contains(NormalizeNumber(c.Number))).ToList();
+            channels = channels.Where(c => onlyNumbers.Contains(TunerChannels.Normalize(c.Number))).ToList();
         }
 
         var settings = new XmlWriterSettings { Encoding = new UTF8Encoding(false), Indent = true };
@@ -129,10 +130,6 @@ public static class SdGuideWriter
         w.WriteEndDocument();
         return (count, channels.Count, inLineup);
     }
-
-    /// <summary>A channel number as tuners and lineups both can write it: "004-1" and "4.1" are 4.1, "0202" is 202.</summary>
-    public static string NormalizeNumber(string number) =>
-        string.Join('.', number.Trim().Replace('-', '.').Replace('_', '.').Split('.').Select(p => p.TrimStart('0') is { Length: > 0 } t ? t : "0"));
 
     private static void WriteProgramme(XmlWriter w, string channel, string id, DateTime start, JsonObject air, JsonObject? d, string imageBase)
     {

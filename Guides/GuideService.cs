@@ -8,8 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.XmltvCleaner.Configuration;
 using Jellyfin.Plugin.XmltvCleaner.SchedulesDirect;
-using MediaBrowser.Common.Configuration;
-using MediaBrowser.Controller.LiveTv;
+using Jellyfin.Plugin.XmltvCleaner.Providers;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.XmltvCleaner.Guides;
@@ -34,29 +33,19 @@ public sealed class GuideService
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly SdUpdater _sd;
-    private readonly ITunerHostManager _tunerHosts;
+    private readonly TunerChannels _tunerChannels;
+    private readonly GuideCopies _copies;
     private readonly ILogger<GuideService> _logger;
     private readonly SemaphoreSlim _lock = new(1, 1);
-    private readonly string _directory;
     private readonly Dictionary<string, RefreshStatus> _statuses = new(StringComparer.OrdinalIgnoreCase);
 
-    public GuideService(IHttpClientFactory httpClientFactory, IApplicationPaths applicationPaths, SdUpdater sd, ITunerHostManager tunerHosts, ILogger<GuideService> logger)
+    public GuideService(IHttpClientFactory httpClientFactory, GuideCopies copies, SdUpdater sd, TunerChannels tunerChannels, ILogger<GuideService> logger)
     {
         _httpClientFactory = httpClientFactory;
+        _copies = copies;
         _sd = sd;
-        _tunerHosts = tunerHosts;
+        _tunerChannels = tunerChannels;
         _logger = logger;
-
-        // Under the server's data dir, not the plugin's own (versioned) install folder, so
-        // the last good copy survives a plugin upgrade.
-        _directory = Path.Combine(applicationPaths.DataPath, "xmltv-cleaner");
-
-        // 1.0 kept its one guide as guide.xml: it's the first source's last good copy now.
-        var old = Path.Combine(_directory, "guide.xml");
-        if (Plugin.Instance?.Configuration.Sources.FirstOrDefault() is { } first && File.Exists(old) && !File.Exists(PathOf(first.Id)))
-        {
-            File.Move(old, PathOf(first.Id));
-        }
     }
 
     public sealed record RefreshStatus(
@@ -73,61 +62,6 @@ public sealed class GuideService
 
     public static GuideSource? Find(PluginConfiguration cfg, string id) =>
         cfg.Sources.FirstOrDefault(s => string.Equals(s.Id, id, StringComparison.OrdinalIgnoreCase));
-
-    // Address names are checked by the settings page; this keeps a hand-edited one from
-    // naming a file outside the folder.
-    // What a copy was made from; the tuners' channel numbers count, so a channel added to a
-    // tuner gets its guide at the next request.
-    private static string Signature(GuideSource s, ISet<string>? numbers = null) =>
-        string.Join('|', s.Type, s.Url.Trim(), s.Lineup.Trim(), s.Days, s.Clean, s.CleanYears, s.CleanIds)
-        + (numbers is null ? string.Empty : "|" + string.Join(',', numbers.OrderBy(n => n, StringComparer.Ordinal)));
-
-    private static void SaveSignature(GuideSource source, string guidePath, ISet<string>? numbers = null) => File.WriteAllText(guidePath + ".src", Signature(source, numbers));
-
-    /// <summary>
-    /// The channel numbers the source's tuners have (Jellyfin's cached channel lists), or null
-    /// for the whole lineup: no tuners ticked, or none of them answered.
-    /// </summary>
-    private async Task<ISet<string>?> TunerNumbersAsync(GuideSource source, CancellationToken ct)
-    {
-        var tuners = new HashSet<string>(source.Tuners, StringComparer.OrdinalIgnoreCase);
-        if (tuners.Count == 0)
-        {
-            return null;
-        }
-
-        var numbers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var host in _tunerHosts.TunerHosts)
-        {
-            try
-            {
-                foreach (var channel in await host.GetChannels(true, ct).ConfigureAwait(false))
-                {
-                    if (channel.TunerHostId is not null && tuners.Contains(channel.TunerHostId) && !string.IsNullOrWhiteSpace(channel.Number))
-                    {
-                        numbers.Add(SdGuideWriter.NormalizeNumber(channel.Number));
-                    }
-                }
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogWarning(ex, "Couldn't list the channels of {Type} tuners for guide {Source}", host.Type, source.Id);
-            }
-        }
-
-        if (numbers.Count == 0)
-        {
-            _logger.LogWarning("Guide {Source}: its tuners listed no channels; writing the whole lineup", source.Id);
-            return null;
-        }
-
-        return numbers;
-    }
-
-    private string PathOf(string id) =>
-        System.Text.RegularExpressions.Regex.IsMatch(id, "^[A-Za-z0-9][A-Za-z0-9_-]*$")
-            ? Path.Combine(_directory, "guide-" + id.ToLowerInvariant() + ".xml")
-            : throw new InvalidOperationException($"\"{id}\" isn't a usable address name (letters, digits and dashes).");
 
     /// <summary>
     /// The source's last fetch or write. Before the first one since the server started, the
@@ -146,7 +80,7 @@ public sealed class GuideService
 
         try
         {
-            var path = PathOf(id);
+            var path = _copies.PathOf(id);
             return File.Exists(path) ? new RefreshStatus(File.GetLastWriteTimeUtc(path), 0, 0, 0, Array.Empty<string>(), 0, null, null) : null;
         }
         catch (InvalidOperationException)
@@ -173,16 +107,19 @@ public sealed class GuideService
     {
         var cfg = Plugin.Instance?.Configuration ?? new PluginConfiguration();
         var source = Find(cfg, id) ?? throw new InvalidOperationException($"There is no guide source \"{id}\" (plugin settings).");
-        var guidePath = PathOf(source.Id);
+        var guidePath = _copies.PathOf(source.Id);
 
         await _lock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             var fromSd = source.Type == GuideSource.SchedulesDirect;
-            var numbers = fromSd && source.OnlyTunerChannels ? await TunerNumbersAsync(source, cancellationToken).ConfigureAwait(false) : null;
+            // A whole lineup when the tuners list nothing (or none are ticked).
+            var numbers = fromSd && source.OnlyTunerChannels
+                ? await _tunerChannels.NumbersAsync(source.Tuners, "guide " + source.Id, cancellationToken).ConfigureAwait(false)
+                : null;
             var stamp = Path.Combine(_sd.Root, "updated");
             // A copy made under other settings (type, address, lineup, cleaning) is never fresh.
-            var sameSettings = File.Exists(guidePath + ".src") && File.ReadAllText(guidePath + ".src") == Signature(source, numbers);
+            var sameSettings = GuideCopies.MadeFrom(guidePath, source, numbers);
             var fresh = sameSettings && (fromSd
                 // Schedules Direct: rewritten only after the local copy was updated.
                 ? File.Exists(guidePath) && File.Exists(stamp) && File.GetLastWriteTimeUtc(guidePath) >= File.GetLastWriteTimeUtc(stamp)
@@ -240,7 +177,7 @@ public sealed class GuideService
     // what it needs already.
     private void WriteFromSd(GuideSource source, string guidePath, string imageBase, ISet<string>? numbers, CancellationToken cancellationToken)
     {
-        Directory.CreateDirectory(_directory);
+        Directory.CreateDirectory(_copies.Directory);
         var tempPath = guidePath + ".tmp";
         var sw = Stopwatch.StartNew();
         try
@@ -257,7 +194,7 @@ public sealed class GuideService
             }
 
             File.Move(tempPath, guidePath, overwrite: true);
-            SaveSignature(source, guidePath, numbers);
+            GuideCopies.RecordMadeFrom(guidePath, source, numbers);
             sw.Stop();
             SetStatus(source.Id, new RefreshStatus(DateTime.UtcNow, programmes, 0, 0, Array.Empty<string>(), sw.ElapsedMilliseconds, null, null, channels, inLineup));
             _logger.LogInformation(
@@ -280,7 +217,7 @@ public sealed class GuideService
             throw new InvalidOperationException($"Guide source \"{source.Name}\" has no XMLTV address (plugin settings).");
         }
 
-        Directory.CreateDirectory(_directory);
+        Directory.CreateDirectory(_copies.Directory);
         var tempPath = guidePath + ".tmp";
         var sw = Stopwatch.StartNew();
 
@@ -318,7 +255,7 @@ public sealed class GuideService
             }
 
             File.Move(tempPath, guidePath, overwrite: true);
-            SaveSignature(source, guidePath);
+            GuideCopies.RecordMadeFrom(guidePath, source, null);
         }
         finally
         {
