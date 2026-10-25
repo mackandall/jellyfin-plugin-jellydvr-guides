@@ -24,7 +24,10 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         : base(applicationPaths, xmlSerializer)
     {
         Instance = this;
-        MoveToSources(Configuration);
+        if (MoveToSources(Configuration))
+        {
+            SaveConfiguration();
+        }
     }
 
     public static Plugin? Instance { get; private set; }
@@ -41,13 +44,13 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     /// <summary>
     /// Settings from before sources (1.0's one guide URL, then the 1.1 preview's "More guides"
     /// URLs, "sd:&lt;lineup&gt;" for Schedules Direct) become sources: the first still answers at
-    /// guide.xml, the rest at guide2.xml… as before.
+    /// guide.xml, the rest at guide2.xml… as before. Returns whether anything moved.
     /// </summary>
-    private void MoveToSources(PluginConfiguration cfg)
+    internal static bool MoveToSources(PluginConfiguration cfg)
     {
         if (cfg.Sources.Length > 0 || (string.IsNullOrWhiteSpace(cfg.UpstreamUrl) && cfg.ExtraUpstreamUrls.Length == 0))
         {
-            return;
+            return false;
         }
 
         var urls = new[] { cfg.UpstreamUrl }.Concat(cfg.ExtraUpstreamUrls).ToList();
@@ -76,7 +79,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         cfg.Sources = sources.ToArray();
         cfg.UpstreamUrl = string.Empty;
         cfg.ExtraUpstreamUrls = Array.Empty<string>();
-        SaveConfiguration();
+        return true;
     }
 
     /// <summary>The settings page and its script (the page's data-controller names the script).</summary>

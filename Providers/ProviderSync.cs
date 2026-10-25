@@ -78,18 +78,18 @@ public sealed class ProviderSync
     public static string AddressOf(string serverBase, GuideSource source) => serverBase + "JellyDvrGuides/guide/" + source.Id + ".xml";
 
     /// <summary>Which Jellyfin guide provider (if any) reads each source, and for which tuners.</summary>
-    public IReadOnlyList<ProviderState> States(PluginConfiguration cfg, string serverBase)
+    public IReadOnlyList<ProviderState> States(PluginConfiguration cfg)
     {
         var providers = LiveTv().ListingProviders;
         return cfg.Sources.Select((s, i) =>
         {
-            var p = Match(providers, s, i, serverBase);
+            var p = Match(providers, s, i);
             return new ProviderState(s.Id, p is not null, p?.EnabledTuners ?? Array.Empty<string>(), p?.EnableAllTuners ?? false, p?.Id, Others(providers, p, s));
         }).ToList();
     }
 
     // The other providers that also give a guide to this source's tuners.
-    private static List<OtherProvider> Others(ListingsProviderInfo[] providers, ListingsProviderInfo? mine, GuideSource source)
+    internal static List<OtherProvider> Others(ListingsProviderInfo[] providers, ListingsProviderInfo? mine, GuideSource source)
     {
         var tuners = mine is not null ? mine.EnabledTuners : source.Tuners;
         var all = mine?.EnableAllTuners ?? false;
@@ -111,9 +111,9 @@ public sealed class ProviderSync
     /// Removes another guide provider that covers a source's tuners (the source card's Remove
     /// button). Only one listed as covering a source's tuners can be removed this way.
     /// </summary>
-    public bool RemoveOther(PluginConfiguration cfg, string serverBase, string providerId)
+    public bool RemoveOther(PluginConfiguration cfg, string providerId)
     {
-        if (!States(cfg, serverBase).Any(s => s.Others.Any(o => o.Id == providerId)))
+        if (!States(cfg).Any(s => s.Others.Any(o => o.Id == providerId)))
         {
             return false;
         }
@@ -144,7 +144,7 @@ public sealed class ProviderSync
             }
 
             var address = AddressOf(serverBase, source);
-            var existing = Match(providers, source, i, serverBase);
+            var existing = Match(providers, source, i);
             var info = existing is null ? NewProvider(template) : Copy(existing);
             var tuners = source.Tuners.Where(t => !string.IsNullOrWhiteSpace(t)).Distinct().ToArray();
             if (existing is not null && existing.Path == address && !existing.EnableAllTuners
@@ -204,20 +204,26 @@ public sealed class ProviderSync
         }
     }
 
-    // The provider reading this source: the one it made, else one at its address, else (first
-    // source only) one at the 1.0 address.
-    private static ListingsProviderInfo? Match(IEnumerable<ListingsProviderInfo> providers, GuideSource source, int index, string serverBase)
+    // The provider reading this source: the one it made, else one at its address, else one at
+    // its address from before sources.
+    internal static ListingsProviderInfo? Match(IEnumerable<ListingsProviderInfo> providers, GuideSource source, int index)
     {
         var list = providers.Where(p => p.Type == "xmltv").ToList();
-        var address = AddressOf(serverBase, source);
+        var legacy = LegacyFeed(source, index);
         return list.FirstOrDefault(p => !string.IsNullOrEmpty(source.ProviderId) && p.Id == source.ProviderId)
             ?? list.FirstOrDefault(p => SamePath(p.Path, "JellyDvrGuides/guide/" + source.Id + ".xml") || SamePath(p.Path, "XmltvCleaner/guide/" + source.Id + ".xml"))
-            ?? (index == 0 ? list.FirstOrDefault(p => SamePath(p.Path, "XmltvCleaner/guide.xml")) : null)
-            ?? (index > 0 ? list.FirstOrDefault(p => SamePath(p.Path, $"XmltvCleaner/guide{index + 1}.xml")) : null);
+            ?? list.FirstOrDefault(p => SamePath(p.Path, legacy == 1 ? "XmltvCleaner/guide.xml" : $"XmltvCleaner/guide{legacy}.xml"));
 
         static bool SamePath(string? path, string tail) =>
             path is not null && path.EndsWith("/" + tail, StringComparison.OrdinalIgnoreCase);
     }
+
+    // Which pre-sources address (1 = guide.xml, 2 = guide2.xml…) means this source: the one
+    // migration named it after, else its place in the list (as GuideController.LegacySource).
+    private static int LegacyFeed(GuideSource source, int index) =>
+        source.Id == "main" ? 1
+        : source.Id.StartsWith("guide", StringComparison.Ordinal) && int.TryParse(source.Id[5..], out var n) && n >= 2 ? n
+        : index + 1;
 
     // A new XMLTV provider with the category lists of the one already there (so Jellyfin sorts
     // movies, sports and series the same way), else the dashboard's defaults.

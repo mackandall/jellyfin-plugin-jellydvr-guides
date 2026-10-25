@@ -46,17 +46,24 @@ public sealed class GuideController : ControllerBase
     public Task<IActionResult> GetGuide([FromRoute] string id, CancellationToken cancellationToken) =>
         Serve(GuideService.Find(Config(), id), id, cancellationToken);
 
-    /// <summary>1.0's address: the first source.</summary>
+    /// <summary>1.0's address: the source moved from its guide URL ("main"), else the first.</summary>
     [HttpGet("guide.xml")]
     [AllowAnonymous]
     public Task<IActionResult> GetFirstGuide(CancellationToken cancellationToken) =>
-        Serve(Config().Sources.FirstOrDefault(), "1", cancellationToken);
+        Serve(LegacySource(Config(), 1), "1", cancellationToken);
 
-    /// <summary>The 1.1 preview's "More guides" addresses: guide2.xml is the second source…</summary>
+    /// <summary>The 1.1 preview's "More guides" addresses: guide2.xml is the source moved as "guide2"…</summary>
     [HttpGet("guide{feed:int:min(2)}.xml")]
     [AllowAnonymous]
     public Task<IActionResult> GetNumberedGuide([FromRoute] int feed, CancellationToken cancellationToken) =>
-        Serve(Config().Sources.ElementAtOrDefault(feed - 1), feed.ToString(System.Globalization.CultureInfo.InvariantCulture), cancellationToken);
+        Serve(LegacySource(Config(), feed), feed.ToString(System.Globalization.CultureInfo.InvariantCulture), cancellationToken);
+
+    /// <summary>
+    /// The source an address from before sources means: the one migration gave that guide's id
+    /// (main, guide2…), else the one in that place in the list.
+    /// </summary>
+    internal static GuideSource? LegacySource(PluginConfiguration cfg, int feed) =>
+        GuideService.Find(cfg, feed == 1 ? "main" : "guide" + feed) ?? cfg.Sources.ElementAtOrDefault(feed - 1);
 
     private async Task<IActionResult> Serve(GuideSource? source, string asked, CancellationToken cancellationToken)
     {
@@ -150,7 +157,7 @@ public sealed class GuideController : ControllerBase
     [Authorize(Policy = Policies.RequiresElevation)]
     public ActionResult<SourceStatus[]> RemoveProvider([FromRoute] string providerId)
     {
-        if (!_providers.RemoveOther(Config(), Base(), providerId))
+        if (!_providers.RemoveOther(Config(), providerId))
         {
             return NotFound("That guide provider doesn't cover any guide source's tuners.");
         }
@@ -162,7 +169,7 @@ public sealed class GuideController : ControllerBase
     {
         var cfg = Config();
         var serverBase = Base();
-        var providers = _providers.States(cfg, serverBase);
+        var providers = _providers.States(cfg);
         return cfg.Sources
             .Select((s, i) => new SourceStatus(s.Id, ProviderSync.AddressOf(serverBase, s), _guideService.StatusOf(s.Id), providers.ElementAtOrDefault(i)))
             .ToArray();
