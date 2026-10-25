@@ -71,6 +71,12 @@ dotnet build -c Release
 sudo ./install.sh   # copies DLL + meta.json + icon.png into the plugin dir, restarts Jellyfin
 ```
 
+### Tests
+
+```bash
+dotnet test tests
+```
+
 ## Setup
 
 1. For Schedules Direct: Dashboard → Plugins → **JellyDVR Guides** → *Schedules Direct
