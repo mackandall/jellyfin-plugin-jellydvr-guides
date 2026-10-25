@@ -71,6 +71,11 @@ public sealed class GuideService
 
     // Address names are checked by the settings page; this keeps a hand-edited one from
     // naming a file outside the folder.
+    private static string Signature(GuideSource s) =>
+        string.Join('|', s.Type, s.Url.Trim(), s.Lineup.Trim(), s.Days, s.Clean, s.CleanYears, s.CleanIds);
+
+    private static void SaveSignature(GuideSource source, string guidePath) => File.WriteAllText(guidePath + ".src", Signature(source));
+
     private string PathOf(string id) =>
         System.Text.RegularExpressions.Regex.IsMatch(id, "^[A-Za-z0-9][A-Za-z0-9_-]*$")
             ? Path.Combine(_directory, "guide-" + id.ToLowerInvariant() + ".xml")
@@ -127,7 +132,9 @@ public sealed class GuideService
         {
             var fromSd = source.Type == GuideSource.SchedulesDirect;
             var stamp = Path.Combine(_sd.Root, "updated");
-            var fresh = fromSd
+            // A copy made under other settings (type, address, lineup, cleaning) is never fresh.
+            var sameSettings = File.Exists(guidePath + ".src") && File.ReadAllText(guidePath + ".src") == Signature(source);
+            var fresh = sameSettings && fromSd
                 // Schedules Direct: rewritten only after the local copy was updated.
                 ? File.Exists(guidePath) && File.Exists(stamp) && File.GetLastWriteTimeUtc(guidePath) >= File.GetLastWriteTimeUtc(stamp)
                 : File.Exists(guidePath) && File.GetLastWriteTimeUtc(guidePath) >= DateTime.UtcNow.AddMinutes(-Math.Max(0, cfg.MinRefetchMinutes));
@@ -201,6 +208,7 @@ public sealed class GuideService
             }
 
             File.Move(tempPath, guidePath, overwrite: true);
+            SaveSignature(source, guidePath);
             sw.Stop();
             SetStatus(source.Id, new RefreshStatus(DateTime.UtcNow, programmes, 0, 0, Array.Empty<string>(), sw.ElapsedMilliseconds, null, null));
             _logger.LogInformation("Wrote guide {Source} from Schedules Direct lineup {Lineup}: {Programmes} programmes ({Ms} ms)", source.Id, source.Lineup, programmes, sw.ElapsedMilliseconds);
@@ -259,6 +267,7 @@ public sealed class GuideService
             }
 
             File.Move(tempPath, guidePath, overwrite: true);
+            SaveSignature(source, guidePath);
         }
         finally
         {

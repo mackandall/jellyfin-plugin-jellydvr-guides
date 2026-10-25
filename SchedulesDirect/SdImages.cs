@@ -24,6 +24,8 @@ public sealed partial class SdImages
     private readonly ILogger<SdImages> _logger;
     private readonly SemaphoreSlim _downloads = new(2, 2);
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _perKey = new();
+    private string? _lastError;
+    private DateTime _lastErrorUtc;
 
     public SdImages(SdClient client, SdUpdater updater, ILogger<SdImages> logger)
     {
@@ -77,7 +79,7 @@ public sealed partial class SdImages
 
             var cfg = Plugin.Instance?.Configuration ?? new PluginConfiguration();
             Directory.CreateDirectory(Folder);
-            var reply = await _client.PostAsync(cfg, "metadata/programs", new JsonArray(programId), ct).ConfigureAwait(false);
+            var reply = await _client.PostAsync(cfg, "metadata/programs/", new JsonArray(programId), ct).ConfigureAwait(false);
             var data = reply.AsArray().OfType<JsonObject>().FirstOrDefault()?["data"] as JsonArray;
             var best = data?.OfType<JsonObject>()
                 .Where(d => d["uri"] is not null)
@@ -97,8 +99,15 @@ public sealed partial class SdImages
         }
         catch (SdException ex)
         {
-            // Today's cap or a lockout: no picture for now, asked again later.
-            _logger.LogDebug("No picture for {Key}: {Message}", key, ex.Message);
+            // Today's cap or a lockout: no picture for now, asked again later. Logged once an
+            // hour per reason: a guide refresh asks for thousands at once.
+            if (ex.Message != _lastError || DateTime.UtcNow > _lastErrorUtc.AddHours(1))
+            {
+                _lastError = ex.Message;
+                _lastErrorUtc = DateTime.UtcNow;
+                _logger.LogWarning("No programme pictures from Schedules Direct for now (first: {Key}): {Message}", key, ex.Message);
+            }
+
             return null;
         }
         finally
