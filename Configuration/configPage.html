@@ -33,6 +33,8 @@
         #JellyDvrGuidesConfigPage .jg-box { background: rgba(255,255,255,.05); border-radius: 8px; padding: .8em 1em; margin-bottom: 1.2em; }
         #JellyDvrGuidesConfigPage .jg-check { display: flex; gap: .7em; align-items: flex-start; cursor: pointer; margin: .4em 0; }
         #JellyDvrGuidesConfigPage .jg-check > span > .fieldDescription { font-style: italic; }
+        /* Jellyfin's theme forces white-space on .fieldDescription: these list one item a line. */
+        #JellyDvrGuidesConfigPage #SdStatus, #JellyDvrGuidesConfigPage #ApplyResult { white-space: pre-line !important; }
         #JellyDvrGuidesConfigPage .jg-check input { width: 1.2em; height: 1.2em; margin: .15em 0 0; accent-color: #00a4dc; flex: none; }
         #JellyDvrGuidesConfigPage .jg-indent { padding-left: 1.9em; }
         #JellyDvrGuidesConfigPage .jg-tuners { display: flex; flex-wrap: wrap; gap: .2em 1.6em; }
@@ -54,7 +56,7 @@
                     </div>
                     <div id="Sources"></div>
                     <button id="AddSource" type="button" is="emby-button" class="raised"><span>+ Add guide source</span></button>
-                    <div id="ApplyResult" class="fieldDescription" style="margin-top:.6em;white-space:pre-line;"></div>
+                    <div id="ApplyResult" class="fieldDescription" style="margin-top:.6em;"></div>
                 </div>
 
                 <div class="verticalSection">
@@ -80,7 +82,7 @@
                         <button id="SdSignIn" type="button" is="emby-button" class="raised"><span>Sign in</span></button>
                         <button id="SdUpdate" type="button" is="emby-button" class="raised"><span>Update now</span></button>
                     </div>
-                    <div id="SdStatus" class="fieldDescription" style="margin-top:.6em;white-space:pre-line;"></div>
+                    <div id="SdStatus" class="fieldDescription" style="margin-top:.6em;"></div>
                 </div>
 
                 <div class="verticalSection">

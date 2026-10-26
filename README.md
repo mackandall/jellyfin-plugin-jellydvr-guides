@@ -7,6 +7,8 @@ existing setups carry over (see [Upgrading from XMLTV Guide Cleaner](#upgrading-
 
 Target: Jellyfin 12.0.x (.NET 10).
 
+![Guide sources: a Schedules Direct satellite lineup and a local antenna lineup, each limited to its tuner](docs/screenshots/sources.png)
+
 ## Why
 
 **Schedules Direct without the lockouts.** Jellyfin's own Schedules Direct provider asks
@@ -85,9 +87,15 @@ dotnet test tests
 1. For Schedules Direct: Dashboard → Plugins → **JellyDVR Guides** → *Schedules Direct
    account*: sign in, then **Update now** to list your lineups. Add or change lineups on the
    Schedules Direct website.
+
+   ![Schedules Direct account: sign in, Update now, and the last update's numbers](docs/screenshots/schedules-direct.png)
+
 2. **+ Add guide source**: pick the type (XMLTV address or Schedules Direct lineup), give it
    a name and address name, tick the tuners it's for, and leave *Add it to Jellyfin's guide
    providers for me* ticked. Save.
+
+   ![Add guide source: an XMLTV address with cleaning, its address name, and the tuners it's for](docs/screenshots/add-source.png)
+
 3. The plugin adds the guide provider and runs Jellyfin's **Refresh Guide**. Jellyfin keeps
    its own copy of each XMLTV download for up to an hour, so a guide that changed source may
    take that long to show.
