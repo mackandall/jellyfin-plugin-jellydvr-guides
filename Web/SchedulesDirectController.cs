@@ -71,7 +71,7 @@ public sealed class SchedulesDirectController : ControllerBase
         return Ok("Signed in to Schedules Direct as " + account.Username.Trim() + ".");
     }
 
-    public sealed record SdStatus(SdUpdater.UpdateStatus? Update, object[] Lineups, string? Blocked, string? ImagesBlocked, string Username);
+    public sealed record SdStatus(SdUpdater.UpdateStatus? Update, object[] Lineups, string? Blocked, string? ImagesBlocked, string Username, string? Note);
 
     [HttpGet("SchedulesDirect/Status")]
     [Authorize(Policy = Policies.RequiresElevation)]
@@ -92,10 +92,11 @@ public sealed class SchedulesDirectController : ControllerBase
             lineups,
             _client.BlockedUntil > now ? $"until {_client.BlockedUntil.ToLocalTime():g}: {_client.BlockedWhy}" : null,
             _client.ImagesBlockedUntil > now ? $"daily image limit reached; images resume {_client.ImagesBlockedUntil.ToLocalTime():g}" : null,
-            Plugin.Instance?.Configuration.SdUsername ?? string.Empty));
+            Plugin.Instance?.Configuration.SdUsername ?? string.Empty,
+            _updater.LastNote));
     }
 
-    /// <summary>Update now (the settings page): ignores the once-a-day rule, not the lockouts.</summary>
+    /// <summary>Update now (the settings page): ignores the once-a-day rule (not more than every 15 minutes), not the lockouts.</summary>
     [HttpPost("SchedulesDirect/Update")]
     [Authorize(Policy = Policies.RequiresElevation)]
     public async Task<ActionResult<SdStatus>> Update(CancellationToken ct)

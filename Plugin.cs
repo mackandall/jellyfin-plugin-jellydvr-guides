@@ -29,7 +29,14 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     {
         Instance = this;
         CarryOverFromXmltvCleaner(applicationPaths);
-        if (MoveToSources(Configuration))
+        var changed = MoveToSources(Configuration);
+        if (Configuration.SdUpdateMinuteOfDay < 0)
+        {
+            Configuration.SdUpdateMinuteOfDay = SchedulesDirect.SdUpdateTask.PickMinuteOfDay(Random.Shared);
+            changed = true;
+        }
+
+        if (changed)
         {
             SaveConfiguration();
         }

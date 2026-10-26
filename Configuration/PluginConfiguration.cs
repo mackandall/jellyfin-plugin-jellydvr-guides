@@ -87,6 +87,14 @@ public class PluginConfiguration : BasePluginConfiguration
     /// </summary>
     public int RecheckPictureDays { get; set; } = 14;
 
+    /// <summary>
+    /// Schedules Direct: the time of day (minutes after midnight) of the daily update's default
+    /// trigger, chosen at random once per server (see SdUpdateTask.PickMinuteOfDay) so servers
+    /// don't all ask at the same moment. -1 = not chosen yet. Dashboard › Scheduled Tasks can
+    /// still change the trigger.
+    /// </summary>
+    public int SdUpdateMinuteOfDay { get; set; } = -1;
+
     /// <summary>The Schedules Direct account every Schedules Direct source uses.</summary>
     public string SdUsername { get; set; } = string.Empty;
 

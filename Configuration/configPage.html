@@ -61,10 +61,11 @@
                     <h2>Schedules Direct account</h2>
                     <div class="fieldDescription" style="margin-bottom:.8em;">
                         Shared by every Schedules Direct source. The plugin downloads only what changed, once a day
-                        (Scheduled Tasks &rarr; "Update Schedules Direct guide", 5:00), and only for the lineups the sources
-                        use, so Jellyfin's guide refreshes never reach Schedules Direct. Pictures are fetched the first time
-                        they're shown, then kept (re-checked now and then: General, below). Remove Jellyfin's own Schedules Direct guide provider once you use this,
-                        or it keeps asking them on every refresh.
+                        (Scheduled Tasks &rarr; "Update Schedules Direct guide", at a time between 2:00 and 6:00 picked
+                        for this server), and only for the lineups the sources use, so Jellyfin's guide refreshes never
+                        reach Schedules Direct. Update now asks again at most every 15 minutes. Pictures are fetched the
+                        first time they're shown, then kept (re-checked now and then: General, below). Remove Jellyfin's
+                        own Schedules Direct guide provider once you use this, or it keeps asking them on every refresh.
                     </div>
                     <div id="SdAccountResult" class="fieldDescription" style="margin-bottom:.6em;"></div>
                     <div class="jg-grid">

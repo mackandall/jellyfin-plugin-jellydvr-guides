@@ -343,6 +343,7 @@ export default function (view) {
             lines.push("Last update " + when(u.FinishedUtc) + " (" + Math.round(u.DurationMs / 1000) + " s): " +
                 u.Lineups + " lineup(s) in use, " + u.Stations + " stations; " + u.DaysFetched + " changed days and " + u.ProgramsFetched + " programmes downloaded.");
         }
+        if (s.Note) { lines.unshift(s.Note); }
         if (u && u.Error) { lines.push("Last error (" + when(u.ErrorUtc) + "): " + u.Error); }
         if (s.Blocked) { lines.push("Paused " + s.Blocked); }
         if (s.ImagesBlocked) { lines.push("Pictures: " + s.ImagesBlocked); }

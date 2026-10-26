@@ -54,6 +54,14 @@ public sealed class SdUpdater
 
     public UpdateStatus? LastStatus { get; private set; }
 
+    /// <summary>Why the last Update now didn't ask Schedules Direct (too soon after the last update), or null.</summary>
+    public string? LastNote { get; private set; }
+
+    /// <summary>The shortest time between two updates that ask Schedules Direct, Update now included.</summary>
+    internal static readonly TimeSpan MinUpdateGap = TimeSpan.FromMinutes(15);
+
+    private DateTime _lastAskedUtc;
+
     public string LineupPath(string lineup) => Path.Combine(Root, "lineups", Safe(lineup) + ".json");
 
     public string SchedulePath(string station, string date) => Path.Combine(Root, "schedules", Safe(station) + "_" + date + ".json");
@@ -70,6 +78,8 @@ public sealed class SdUpdater
     /// <summary>
     /// Brings the local copy up to date. Unless forced, does nothing if the last good update
     /// was under 20 hours ago (a restart or a second trigger never means a second download).
+    /// Forced (Update now) within 15 minutes of the last update counts as not forced: it still
+    /// picks up a lineup a source just switched to, but pressing it again doesn't ask again.
     /// </summary>
     public async Task UpdateAsync(bool force, IProgress<double>? progress, CancellationToken ct)
     {
@@ -85,6 +95,15 @@ public sealed class SdUpdater
 
             // The stamp holds the lineups it covered: a guide switched to another lineup updates at once.
             var stamp = Path.Combine(Root, "updated");
+            LastNote = null;
+            var lastUpdate = File.Exists(stamp) ? File.GetLastWriteTimeUtc(stamp) : DateTime.MinValue;
+            if (force && !MayForce(_lastAskedUtc > lastUpdate ? _lastAskedUtc : lastUpdate, DateTime.UtcNow))
+            {
+                force = false;
+                var again = (_lastAskedUtc > lastUpdate ? _lastAskedUtc : lastUpdate) + MinUpdateGap;
+                LastNote = $"Already up to date; Update now asks Schedules Direct again from {again.ToLocalTime():t}.";
+            }
+
             if (!force && File.Exists(stamp) && File.GetLastWriteTimeUtc(stamp) > DateTime.UtcNow.AddHours(-20)
                 && File.ReadAllText(stamp) == usedList)
             {
@@ -94,6 +113,9 @@ public sealed class SdUpdater
             Directory.CreateDirectory(Path.Combine(Root, "lineups"));
             Directory.CreateDirectory(Path.Combine(Root, "schedules"));
             Directory.CreateDirectory(Path.Combine(Root, "programs"));
+
+            LastNote = null;
+            _lastAskedUtc = DateTime.UtcNow;
 
             // Status: is the service up, and which lineups changed.
             var status = await _client.GetAsync(cfg, "status", ct).ConfigureAwait(false);
@@ -270,6 +292,9 @@ public sealed class SdUpdater
             _lock.Release();
         }
     }
+
+    /// <summary>Whether Update now may ask Schedules Direct again, the last update having asked at <paramref name="lastUtc"/>.</summary>
+    internal static bool MayForce(DateTime lastUtc, DateTime nowUtc) => nowUtc - lastUtc >= MinUpdateGap;
 
     // Past days, stations no guide uses any more, and programmes no longer in any schedule for a week.
     private void Tidy(string today, HashSet<string> stations)

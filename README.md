@@ -12,8 +12,9 @@ Target: Jellyfin 12.0.x (.NET 10).
 **Schedules Direct without the lockouts.** Jellyfin's own Schedules Direct provider asks
 Schedules Direct for everything on every guide refresh, and Schedules Direct warns that it
 gets accounts and IP addresses banned. This plugin downloads only what changed, once a day
-(Scheduled Tasks → *Update Schedules Direct guide*, 5:00), and only for the lineups your
-sources use. Jellyfin's guide refreshes read the local copy and never reach Schedules
+(Scheduled Tasks → *Update Schedules Direct guide*, at a time between 2:00 and 6:00 picked
+at random for each server, so servers don't all ask at once), and only for the lineups your
+sources use. **Update now** asks again at most every 15 minutes. Jellyfin's guide refreshes read the local copy and never reach Schedules
 Direct. Programme pictures are fetched the first time a client shows them, then kept, and
 downloads stop for the day when Schedules Direct's daily picture limit is reached. A kept
 picture older than 14 days (a setting) is re-checked the next time it's shown and downloaded
