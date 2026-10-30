@@ -174,7 +174,7 @@ export default function (view) {
         editing = index;
         var s = index >= 0 ? config.Sources[index] : {
             Id: "", Name: "", Type: "xmltv", Url: "", Lineup: "", Days: 14,
-            Clean: true, CleanYears: true, CleanIds: true, ManageProvider: true, OnlyTunerChannels: true, Tuners: []
+            Clean: true, CleanYears: true, CleanIds: true, ManageProvider: true, OnlyTunerChannels: true, NumberlessAsSeries: true, Tuners: []
         };
         q("#SourceDialogTitle").textContent = index >= 0 ? "Edit guide source" : "Add guide source";
         q("#SrcName").value = s.Name || "";
@@ -188,6 +188,7 @@ export default function (view) {
         q("#SrcId").dataset.auto = index >= 0 ? "" : "1";
         q("#SrcManage").checked = !!s.ManageProvider;
         q("#SrcOnlyTuner").checked = s.OnlyTunerChannels !== false;
+        q("#SrcNumberless").checked = s.NumberlessAsSeries !== false;
 
         var lineup = q("#SrcLineup");
         lineup.innerHTML = "";
@@ -246,6 +247,7 @@ export default function (view) {
             CleanIds: q("#SrcCleanIds").checked,
             ManageProvider: q("#SrcManage").checked,
             OnlyTunerChannels: q("#SrcOnlyTuner").checked,
+            NumberlessAsSeries: q("#SrcNumberless").checked,
             Tuners: Array.prototype.filter.call(q("#SrcTuners").querySelectorAll("input"), function (c) { return c.checked; })
                 .map(function (c) { return c.value; }),
             ProviderId: old.ProviderId || ""

@@ -185,7 +185,7 @@ public sealed class GuideService
             int programmes, channels, inLineup;
             using (var output = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
             {
-                (programmes, channels, inLineup) = SdGuideWriter.Write(_sd, source.Lineup.Trim(), Math.Clamp(source.Days, 1, 21), imageBase, output, cancellationToken, numbers);
+                (programmes, channels, inLineup) = SdGuideWriter.Write(_sd, source.Lineup.Trim(), Math.Clamp(source.Days, 1, 21), imageBase, output, cancellationToken, numbers, source.NumberlessAsSeries);
             }
 
             if (programmes == 0)

@@ -45,6 +45,14 @@ public class GuideSource
     /// </summary>
     public bool OnlyTunerChannels { get; set; } = true;
 
+    /// <summary>
+    /// Schedules Direct: give episodes and shows that have no season/episode numbers a stand-in
+    /// episode number, so Jellyfin counts them as series (Record series). Jellyfin's XMLTV reader
+    /// only calls a programme a series when it has an episode number; its own Schedules Direct
+    /// reader counts every episode and show-level (SH) programme.
+    /// </summary>
+    public bool NumberlessAsSeries { get; set; } = true;
+
     /// <summary>Keep a Jellyfin guide provider pointing here, limited to <see cref="Tuners"/>.</summary>
     public bool ManageProvider { get; set; }
 

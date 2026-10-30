@@ -26,9 +26,10 @@ public static class SdGuideWriter
     /// Writes the guide: every channel of the lineup, or only those whose number is in
     /// <paramref name="onlyNumbers"/> (compared through <see cref="TunerChannels.Normalize"/>). Returns
     /// the programmes and channels written and the lineup's channel count. Throws when the
-    /// lineup isn't in the local copy.
+    /// lineup isn't in the local copy. With <paramref name="numberlessAsSeries"/>, episodes and
+    /// shows without season/episode numbers get a stand-in one (see <see cref="IsSeries"/>).
     /// </summary>
-    public static (int Programmes, int Channels, int InLineup) Write(SdUpdater cache, string lineup, int days, string imageBase, Stream output, CancellationToken ct, ISet<string>? onlyNumbers = null)
+    public static (int Programmes, int Channels, int InLineup) Write(SdUpdater cache, string lineup, int days, string imageBase, Stream output, CancellationToken ct, ISet<string>? onlyNumbers = null, bool numberlessAsSeries = false)
     {
         var lineupPath = cache.LineupPath(lineup);
         if (!File.Exists(lineupPath))
@@ -120,7 +121,7 @@ public static class SdGuideWriter
                         programs[id] = details;
                     }
 
-                    WriteProgramme(w, number, id, start, air, details, imageBase);
+                    WriteProgramme(w, number, id, start, air, details, imageBase, numberlessAsSeries);
                     count++;
                 }
             }
@@ -131,7 +132,7 @@ public static class SdGuideWriter
         return (count, channels.Count, inLineup);
     }
 
-    private static void WriteProgramme(XmlWriter w, string channel, string id, DateTime start, JsonObject air, JsonObject? d, string imageBase)
+    private static void WriteProgramme(XmlWriter w, string channel, string id, DateTime start, JsonObject air, JsonObject? d, string imageBase, bool numberlessAsSeries)
     {
         var stop = start.AddSeconds(air["duration"]?.GetValue<int>() ?? 1800);
         w.WriteStartElement("programme");
@@ -202,6 +203,14 @@ public static class SdGuideWriter
             WriteEpisodeNum(w, "onscreen", season is > 0 ? $"S{season}E{number}" : $"E{number}");
             WriteEpisodeNum(w, "xmltv_ns", (season is > 0 ? (season - 1).ToString() : string.Empty) + "." + (number - 1) + ".");
         }
+        else if (numberlessAsSeries && IsSeries(id, entity))
+        {
+            // Jellyfin's XMLTV reader makes a programme a series only when it has an episode
+            // number; ".-1." reads as episode 0 with no season. Recording file names stay
+            // "Title yyyy_MM_dd…" (those need a season too), and the show-level id still ends in
+            // 0000, which Jellyfin leaves out of its duplicate skipping.
+            WriteEpisodeNum(w, "xmltv_ns", ".-1.");
+        }
 
         WriteEpisodeNum(w, "tms", id);
         WriteEpisodeNum(w, "dd_progid", id);
@@ -250,6 +259,14 @@ public static class SdGuideWriter
 
         w.WriteEndElement();
     }
+
+    /// <summary>
+    /// What Jellyfin's own Schedules Direct reader counts as a series: an episode, or a programme
+    /// with a show-level id (SH + 12 characters), never a movie.
+    /// </summary>
+    internal static bool IsSeries(string id, string? entityType) =>
+        entityType != "Movie"
+        && (entityType == "Episode" || (id.StartsWith("SH", StringComparison.OrdinalIgnoreCase) && id.Length >= 14));
 
     private static void WriteEpisodeNum(XmlWriter w, string system, string value)
     {

@@ -45,10 +45,10 @@ public sealed class SdGuideWriterTests : IDisposable
 
     public void Dispose() => _paths.Dispose();
 
-    private (int Programmes, int Channels, int InLineup, string Xml) Write(ISet<string>? only = null)
+    private (int Programmes, int Channels, int InLineup, string Xml) Write(ISet<string>? only = null, bool numberlessAsSeries = false)
     {
         using var output = new MemoryStream();
-        var r = SdGuideWriter.Write(_cache, Lineup, 14, "http://server:8096/", output, CancellationToken.None, only);
+        var r = SdGuideWriter.Write(_cache, Lineup, 14, "http://server:8096/", output, CancellationToken.None, only, numberlessAsSeries);
         return (r.Programmes, r.Channels, r.InLineup, Encoding.UTF8.GetString(output.ToArray()));
     }
 
@@ -99,4 +99,55 @@ public sealed class SdGuideWriterTests : IDisposable
         using var output = new MemoryStream();
         Assert.Throws<InvalidOperationException>(() => SdGuideWriter.Write(_cache, "USA-NOPE-X", 14, "http://s/", output, CancellationToken.None));
     }
+
+    // A show-level programme (SH…0000, no numbers) and an episode without numbers, on channel 300.
+    private void AddNumberless()
+    {
+        var today = DateTime.UtcNow.Date.ToString("yyyy-MM-dd");
+        File.WriteAllText(_cache.SchedulePath("300", today), $$"""
+            {"programs":[{"programID":"SH017734830000","airDateTime":"{{today}}T05:00:00Z","duration":3600},
+                         {"programID":"EP012345670002","airDateTime":"{{today}}T06:00:00Z","duration":1800}]}
+            """);
+        File.WriteAllText(_cache.ProgramPath("SH017734830000"), """{"titles":[{"title120":"Premier League Goal Zone"}],"entityType":"Show","showType":"Sports non-event"}""");
+        File.WriteAllText(_cache.ProgramPath("EP012345670002"), """{"titles":[{"title120":"Toon in With Me"}],"entityType":"Episode","showType":"Series"}""");
+    }
+
+    private static string Programme(string xml, string title)
+    {
+        var at = xml.IndexOf("<title>" + title + "</title>", StringComparison.Ordinal);
+        Assert.True(at >= 0, title);
+        var start = xml.LastIndexOf("<programme", at, StringComparison.Ordinal);
+        return xml.Substring(start, xml.IndexOf("</programme>", at, StringComparison.Ordinal) - start);
+    }
+
+    [Fact]
+    public void Numberless_episodes_and_shows_get_a_stand_in_episode_number()
+    {
+        AddNumberless();
+        var xml = Write(numberlessAsSeries: true).Xml;
+        Assert.Contains("<episode-num system=\"xmltv_ns\">.-1.</episode-num>", Programme(xml, "Premier League Goal Zone"));
+        Assert.Contains("<episode-num system=\"xmltv_ns\">.-1.</episode-num>", Programme(xml, "Toon in With Me"));
+        // Real numbers stay; movies and sports events get none.
+        Assert.Contains("<episode-num system=\"xmltv_ns\">1.276.</episode-num>", Programme(xml, "NBC Nightly News"));
+        Assert.DoesNotContain("xmltv_ns", Programme(xml, "Ghostbusters"));
+        Assert.DoesNotContain("xmltv_ns", Programme(xml, "NFL Football"));
+    }
+
+    [Fact]
+    public void Numberless_programmes_stay_as_they_are_when_the_setting_is_off()
+    {
+        AddNumberless();
+        var xml = Write(numberlessAsSeries: false).Xml;
+        Assert.DoesNotContain("xmltv_ns", Programme(xml, "Premier League Goal Zone"));
+        Assert.DoesNotContain("xmltv_ns", Programme(xml, "Toon in With Me"));
+    }
+
+    [Theory]
+    [InlineData("SH017734830000", "Show", true)]
+    [InlineData("EP012345670002", "Episode", true)]
+    [InlineData("MV000184850000", "Movie", false)]
+    [InlineData("SH0177348", "Show", false)]
+    [InlineData("SP123456780001", "Sports", false)]
+    public void Series_like_Jellyfins_own_schedules_direct_reader(string id, string entity, bool series) =>
+        Assert.Equal(series, SdGuideWriter.IsSeries(id, entity));
 }

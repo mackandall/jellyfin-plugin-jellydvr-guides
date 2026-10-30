@@ -50,7 +50,7 @@ public sealed partial class GuideCopies
     // The tuners' channel numbers count, so a channel added to a tuner gets its guide at the
     // next request.
     private static string Signature(GuideSource s, ISet<string>? numbers) =>
-        string.Join('|', s.Type, s.Url.Trim(), s.Lineup.Trim(), s.Days, s.Clean, s.CleanYears, s.CleanIds)
+        string.Join('|', s.Type, s.Url.Trim(), s.Lineup.Trim(), s.Days, s.Clean, s.CleanYears, s.CleanIds, s.NumberlessAsSeries)
         + (numbers is null ? string.Empty : "|" + string.Join(',', numbers.OrderBy(n => n, StringComparer.Ordinal)));
 
     [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9_-]*$")]
