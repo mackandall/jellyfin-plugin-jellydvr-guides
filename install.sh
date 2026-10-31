@@ -2,7 +2,11 @@
 # Installs the built plugin into Jellyfin and restarts the server (stop, copy, start). Run with sudo.
 set -euxo pipefail
 SRC="$(dirname "$(readlink -f "$0")")/bin/Release/net10.0"
-DEST=/var/lib/jellyfin/plugins/JellyDvrGuides
+PLUGINS=/var/lib/jellyfin/plugins
+# The folder Jellyfin loads: the one with this plugin's DLL and the highest version in its
+# name (a catalog install makes "<Name>_<version>"); JellyDVR Guides_1.2.0.0 when there's none yet.
+DEST=$(ls -d "$PLUGINS"/*/Jellyfin.Plugin.JellyDvrGuides.dll 2>/dev/null | xargs -r -d '\n' -n1 dirname | sort -t_ -k2 -V | tail -1 || true)
+DEST=${DEST:-$PLUGINS/JellyDVR Guides_1.2.0.0}
 # Stop first: overwriting the DLL under a running server makes it fail on shutdown
 # ("Bad IL range") because the runtime still reads code from the replaced file.
 systemctl stop jellyfin
@@ -11,6 +15,8 @@ trap 'systemctl start jellyfin' EXIT
 # The plugin's folder before the rename (XMLTV Guide Cleaner): two copies of one plugin clash.
 rm -rf /var/lib/jellyfin/plugins/XmltvCleaner_*
 mkdir -p "$DEST"
+# Older copies of this plugin would be loaded instead of (or beside) this one: remove them.
+ls -d "$PLUGINS"/*/Jellyfin.Plugin.JellyDvrGuides.dll 2>/dev/null | xargs -r -d '\n' -n1 dirname | grep -vxF "$DEST" | xargs -r -d '\n' rm -rf || true
 cp "$SRC/Jellyfin.Plugin.JellyDvrGuides.dll" "$SRC/meta.json" "$SRC/icon.png" "$DEST/"
 chown -R jellyfin:jellyfin "$DEST"
 ls -la "$DEST"
